@@ -1,233 +1,334 @@
-# Carpeta Nuevo - Scripts Paso a Paso
+# Prescriptive Process Monitoring: Neuro-Symbolic Policy Distillation
 
-Esta carpeta contiene scripts que se ejecutan paso a paso según las instrucciones del usuario.
+Este proyecto implementa un pipeline completo para monitoreo prescriptivo de procesos de negocio utilizando técnicas de aprendizaje por refuerzo (RL) y destilación de políticas neuro-simbólicas.
+
+## 📋 Descripción
+
+El pipeline consta de 4 fases principales:
+
+1. **Extracción de modelos BPMN y JSON** (`extract_bpmn_json.py`): Descubre modelos de proceso desde logs de eventos usando Simod
+2. **Cálculo de estado parcial** (`compute_state.py`): Calcula el estado parcial del proceso en puntos de corte temporales
+3. **Entrenamiento de agente RL** (`train_agent_in_gym.py`): Entrena un agente de aprendizaje por refuerzo en un entorno "Causal-Gym" con guards simbólicos y recompensas causales
+4. **Destilación de política** (`distill_policy.py`): Destila la política del agente RL en un modelo interpretable y rápido para producción
+
+## 📁 Estructura del Proyecto
+
+```
+prescriptive-process-monitoring-neuro-symbolic-policy-distillation/
+├── src/                          # Código fuente Python
+│   ├── extract_bpmn_json.py     # Fase 1: Extracción BPMN/JSON
+│   ├── compute_state.py          # Fase 2: Cálculo de estado parcial
+│   ├── train_agent_in_gym.py     # Fase 3: Entrenamiento RL
+│   └── distill_policy.py         # Fase 4: Destilación de política
+├── scripts/                      # Scripts de automatización
+│   ├── ejecutar-todo.sh          # Ejecuta todo el pipeline
+│   └── install_dependencies.sh   # Instala dependencias
+├── configs/                      # Archivos de configuración
+│   └── config.yaml               # Configuración principal
+├── data/                         # Datos generados
+│   ├── generado-simod/           # Modelos BPMN y JSON
+│   ├── generado-state/           # Estados parciales calculados
+│   ├── generado-rl-train/       # Experience buffer del RL
+│   └── final_policy_model.pkl   # Modelo final destilado
+├── logs/                         # Logs de eventos de entrada
+├── paper/                        # Documentos del paper
+├── requirements.txt              # Dependencias Python
+└── README.md                     # Este archivo
+```
+
+## 🚀 Inicio Rápido
+
+### Prerrequisitos
+
+- **Python 3.8+**
+- **Docker** (para ejecutar Simod)
+- **Git**
+
+### Instalación y Ejecución
+
+El script `ejecutar-todo.sh` automatiza todo el proceso:
+
+```bash
+# Desde la raíz del proyecto
+./scripts/ejecutar-todo.sh
+```
+
+Este script:
+1. ✅ Crea automáticamente el entorno virtual si no existe
+2. ✅ Instala todas las dependencias
+3. ✅ Ejecuta las 4 fases del pipeline en secuencia
+4. ✅ Maneja errores y muestra progreso
+
+### Configuración
+
+Edita `configs/config.yaml` para ajustar:
+- Ruta del log de eventos
+- Mapeo de columnas del log
+- Parámetros de Simod
+- Configuración de entrenamiento RL
+- Parámetros de destilación
 
 ## 🐍 Entorno Virtual
 
-Esta carpeta incluye un entorno virtual (`venv/`) con todas las dependencias necesarias para ejecutar los scripts.
+### Creación Automática
 
-### Activar el entorno virtual
+El script `ejecutar-todo.sh` crea automáticamente el entorno virtual si no existe. No necesitas crearlo manualmente.
 
-**Opción 1: Usando el script de activación**
+### Activación Manual (Opcional)
+
+Si prefieres trabajar manualmente:
+
 ```bash
-source activate_venv.sh
-```
+# Crear entorno virtual
+python3 -m venv venv
 
-**Opción 2: Manualmente**
-```bash
+# Activar entorno virtual
 source venv/bin/activate
+
+# Instalar dependencias
+pip install --upgrade pip
+pip install -r requirements.txt
 ```
 
-**Opción 3: Ejecutar scripts directamente con el venv**
-```bash
-venv/bin/python extract_bpmn_json.py
-venv/bin/python run_ongoing_state.py
-```
-
-### Desactivar el entorno virtual
+### Desactivar
 
 ```bash
 deactivate
 ```
 
-### Instalar/Actualizar dependencias
+## 📖 Uso Detallado
 
-Si necesitas reinstalar las dependencias:
+### Ejecutar Pipeline Completo
 
 ```bash
+./scripts/ejecutar-todo.sh
+```
+
+### Ejecutar Fases Individuales
+
+Si prefieres ejecutar cada fase por separado:
+
+```bash
+# Activar entorno virtual
 source venv/bin/activate
-pip install -r requirements.txt
+
+# Fase 1: Extraer BPMN y JSON
+python src/extract_bpmn_json.py
+
+# Fase 2: Calcular estado parcial
+python src/compute_state.py
+
+# Fase 3: Entrenar agente RL
+python src/train_agent_in_gym.py
+
+# Fase 4: Destilar política
+python src/distill_policy.py
 ```
 
-### Dependencias incluidas
+## 📝 Fases del Pipeline
 
-- `ongoing-bps-state-short-term` y sus dependencias
-- `Prosimos` (instalado desde el repositorio local)
-- `pyyaml` para manejo de configuración
-- Todas las dependencias necesarias (pandas, numpy, networkx, etc.)
-
-### Dependencias adicionales para What-If Declarativo
-
-El script `run_whatif_declarative.py` requiere dependencias adicionales de `DeclarativeProcessSimulation` (tensorflow, keras, pm4py, etc.).
-
-**Para instalar estas dependencias, ver:** [INSTALL_DEPENDENCIES.md](INSTALL_DEPENDENCIES.md)
-
-O ejecuta:
-```bash
-./install_dependencies.sh
-```
-
-## Script 1: extract_bpmn_json.py
+### Fase 1: extract_bpmn_json.py
 
 Extrae modelos BPMN y JSON desde un log de eventos usando Simod.
 
-### Requisitos
+**Requisitos:**
+- Docker instalado y funcionando
+- Imagen de Simod: `nokal/simod` (se descarga automáticamente)
 
-1. **Docker** instalado y funcionando
-2. **Imagen de Simod**: `nokal/simod` (se descarga automáticamente si no existe)
-3. **Entorno virtual activado** (ver sección "Entorno Virtual" arriba)
+**Configuración:**
+- Edita `configs/config.yaml` en la sección `log_config` para especificar:
+  - `log_path`: Ruta al archivo CSV del log
+  - `column_mapping`: Mapeo de columnas (case, activity, resource, start_time, end_time)
 
-### Instalación de dependencias
+**Archivos generados:**
+- `data/generado-simod/<log_name>.bpmn` - Modelo BPMN descubierto
+- `data/generado-simod/<log_name>.json` - Parámetros estocásticos
 
-Las dependencias ya están instaladas en el entorno virtual. Si necesitas reinstalarlas:
+**Ejemplo:**
+```bash
+python src/extract_bpmn_json.py logs/PurchasingExample.csv
+```
+
+### Fase 2: compute_state.py
+
+Calcula el estado parcial del proceso en puntos de corte temporales usando `ongoing-bps-state-short-term`.
+
+**Requisitos:**
+- Archivos generados por Fase 1 (`.bpmn` y `.json`)
+- Log de eventos original (`.csv`)
+
+**Configuración:**
+- Edita `configs/config.yaml` en la sección `state_config`:
+  - `cut_points`: Lista de timestamps para calcular estados (o `null` para usar automático)
+  - `column_mapping`: Mapeo de columnas (si difiere del log_config)
+
+**Archivos generados:**
+- `data/generado-state/<log_name>_process_state_<timestamp>.json` - Estados parciales
+
+**Ejemplo:**
+```bash
+python src/compute_state.py
+```
+
+### Fase 3: train_agent_in_gym.py
+
+Entrena un agente de aprendizaje por refuerzo en un entorno "Causal-Gym" con:
+- **Symbolic Safety Guards**: Reglas de seguridad que restringen acciones
+- **Causal Rewards**: Recompensas basadas en estimación causal (IPW)
+
+**Requisitos:**
+- Archivos generados por Fases 1 y 2
+- Prosimos instalado (ver `requirements.txt`)
+
+**Configuración:**
+- Edita `configs/config.yaml` en la sección `rl_config`:
+  - `episodes`: Número de episodios de entrenamiento
+  - `learning_rate`: Tasa de aprendizaje
+  - `epsilon`: Exploración inicial (ε-greedy)
+
+**Archivos generados:**
+- `data/generado-rl-train/experience_buffer.csv` - Buffer de experiencias
+
+**Ejemplo:**
+```bash
+python src/train_agent_in_gym.py
+```
+
+### Fase 4: distill_policy.py
+
+Destila la política del agente RL en un modelo interpretable (Decision Tree) para producción.
+
+**Requisitos:**
+- Experience buffer generado por Fase 3
+
+**Configuración:**
+- Edita `configs/config.yaml` en la sección `distill_config`:
+  - `min_samples_split`: Mínimo de muestras para dividir nodo
+  - `max_depth`: Profundidad máxima del árbol
+  - `quality_threshold`: Umbral de calidad para filtrar experiencias
+
+**Archivos generados:**
+- `data/final_policy_model.pkl` - Modelo destilado
+- Reglas SQL/IF-THEN exportadas (opcional)
+
+**Ejemplo:**
+```bash
+python src/distill_policy.py
+```
+
+## ⚙️ Configuración
+
+El archivo `configs/config.yaml` contiene toda la configuración del pipeline:
+
+```yaml
+# Configuración del log
+log_config:
+  log_path: logs/PurchasingExample.csv
+  column_mapping:
+    case: "caseid"
+    activity: "task"
+    resource: "user"
+    start_time: "start_timestamp"
+    end_time: "end_timestamp"
+
+# Configuración de Simod
+simod_config:
+  version: 5
+  control_flow:
+    mining_algorithm: "sm2"
+    # ... más opciones
+
+# Configuración de estado parcial
+state_config:
+  cut_points: null  # null = automático
+
+# Configuración de RL
+rl_config:
+  episodes: 10
+  learning_rate: 0.01
+  # ... más opciones
+
+# Configuración de destilación
+distill_config:
+  min_samples_split: 10
+  max_depth: 10
+  # ... más opciones
+```
+
+## 📦 Dependencias
+
+Las dependencias principales incluyen:
+
+- `ongoing-process-state` - Cálculo de estado parcial
+- `pix-framework` - Framework para análisis de procesos
+- `pandas`, `numpy` - Manipulación de datos
+- `scikit-learn` - Machine learning
+- `pyyaml` - Manejo de configuración
+- `Prosimos` - Simulador de procesos (instalado desde repositorio local)
+
+Ver `requirements.txt` para la lista completa.
+
+**Nota:** Algunas dependencias requieren rutas locales. Ajusta `requirements.txt` según tu configuración.
+
+## 📊 Archivos Generados
+
+Después de ejecutar el pipeline completo, encontrarás:
+
+```
+data/
+├── generado-simod/
+│   ├── <log_name>.bpmn          # Modelo BPMN
+│   └── <log_name>.json           # Parámetros estocásticos
+├── generado-state/
+│   └── <log_name>_process_state_<timestamp>.json  # Estados parciales
+├── generado-rl-train/
+│   └── experience_buffer.csv     # Buffer de experiencias RL
+└── final_policy_model.pkl        # Modelo final destilado
+```
+
+## 🔧 Solución de Problemas
+
+### Error: "No se encontró el entorno virtual"
+
+El script `ejecutar-todo.sh` crea automáticamente el entorno virtual. Si persiste el error, ejecuta manualmente:
 
 ```bash
+python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### Configuración
+### Error: "Docker no está corriendo"
 
-El script lee la configuración desde `config.yaml` en la misma carpeta. Este archivo contiene:
-
-- **log_config**: Mapeo de columnas del log (ajustar según el formato del log)
-- **simod_config**: Parámetros de Simod (control-flow, resource model, etc.)
-- **script_config**: Configuración del script (directorio de salida, Docker, etc.)
-
-Si el archivo `config.yaml` no existe, el script usa valores por defecto.
-
-### Uso
-
-El script puede recibir la ruta del log de dos formas (el argumento tiene prioridad):
-
-**Opción 1: Como argumento de línea de comandos**
-```bash
-python extract_bpmn_json.py <ruta_al_log.csv>
-```
-
-**Opción 2: En config.yaml**
-Especificar `log_config.log_path` en `config.yaml` y ejecutar sin argumentos:
-```bash
-python extract_bpmn_json.py
-```
-
-### Ejemplos
+Asegúrate de que Docker esté instalado y corriendo:
 
 ```bash
-# Desde la carpeta nuevo/
-# Opción 1: Con argumento
-python extract_bpmn_json.py ../../data/0.logs/PurchasingExample/PurchasingExample.csv
-
-# Opción 2: Sin argumento (usa config.yaml)
-# Primero editar config.yaml y poner:
-# log_config:
-#   log_path: "../../data/0.logs/PurchasingExample/PurchasingExample.csv"
-python extract_bpmn_json.py
+docker --version
+docker ps  # Debe funcionar sin errores
 ```
 
-### Qué hace el script
+### Error: "No se encontró ongoing-bps-state-short-term"
 
-1. **Carga la configuración** desde `config.yaml` (o usa valores por defecto)
-2. **Comprime el log** a formato `.gz` (requerido por Simod)
-3. **Crea un archivo de configuración** YAML para Simod usando los parámetros de `config.yaml`
-4. **Ejecuta Simod** usando Docker para descubrir el modelo BPMN y extraer parámetros JSON
-5. **Copia los resultados** (`.bpmn` y `.json`) a la carpeta `nuevo/` (o la especificada en `config.yaml`)
-6. **Limpia** los archivos temporales
+Algunos scripts requieren rutas a repositorios locales. Ajusta las rutas en los scripts según tu configuración.
 
-### Archivos generados
+### Error: "Prosimos no encontrado"
 
-En la carpeta `data/generado-simod/` dentro de `nuevo/` (o la especificada en `script_config.output_dir`):
-- `<log_name>.bpmn` - Modelo BPMN descubierto
-- `<log_name>.json` - Parámetros estocásticos (recursos, tiempos, probabilidades)
+Verifica que Prosimos esté instalado correctamente. La ruta en `requirements.txt` debe apuntar a tu instalación local.
 
-### Personalización
+## 📚 Referencias
 
-Para ajustar el comportamiento del script, edita `config.yaml`:
+- **Simod**: Herramienta para descubrimiento de modelos de proceso
+- **Prosimos**: Simulador estocástico de procesos de negocio
+- **Ongoing BPS State**: Cálculo de estado parcial de procesos
 
-- **Mapeo de columnas**: Si tu log usa nombres diferentes, modifica `log_config.column_mapping`
-- **Parámetros de Simod**: Ajusta `simod_config` para cambiar el algoritmo de descubrimiento, iteraciones, etc.
-- **Directorio de salida**: Cambia `script_config.output_dir` para guardar los archivos en otra ubicación (por defecto: `data/generado-simod/`)
-- **Docker**: Modifica `script_config.docker` para usar otra imagen o configuración
+## 📄 Licencia
+
+Ver archivo `LICENSE` para más detalles.
+
+## 👥 Contribución
+
+Este es un proyecto de investigación. Para contribuciones, contacta a los mantenedores.
 
 ---
 
-## Script 2: run_ongoing_state.py
-
-Calcula el estado parcial del proceso y opcionalmente ejecuta simulación de corto plazo usando `ongoing-bps-state-short-term`.
-
-### Requisitos
-
-1. **Entorno virtual activado** (ver sección "Entorno Virtual" arriba)
-   - Todas las dependencias ya están instaladas en `venv/`
-
-2. **Archivos necesarios** (deben estar en la carpeta `nuevo/`):
-   - `<log_name>.csv` - Log de eventos
-   - `<log_name>.bpmn` - Modelo BPMN (generado por `extract_bpmn_json.py`)
-   - `<log_name>.json` - Parámetros JSON (generado por `extract_bpmn_json.py`)
-
-3. **Módulo ongoing-bps-state-short-term**:
-   - El script lo importa automáticamente desde la ruta configurada
-
-### Configuración
-
-El script lee la configuración desde `config.yaml` en la sección `ongoing_config`:
-
-- **start_time**: Fecha/hora de corte (cut-off) en formato ISO. Si es `null`, usa el último evento del log.
-- **column_mapping**: Mapeo de columnas (si es `null`, usa el de `log_config`).
-- **simulate**: Si ejecutar simulación de corto plazo (`true`/`false`).
-- **simulation_horizon**: Horizonte de simulación en formato ISO. Si es `null` y `simulate=true`, se calcula automáticamente.
-- **horizon_days**: Días desde ahora para calcular el horizonte automáticamente (default: 7).
-- **total_cases**: Número de casos a simular (default: 20).
-
-### Uso
-
-**Con entorno virtual activado:**
-```bash
-source venv/bin/activate
-python run_ongoing_state.py
-```
-
-**O directamente con el venv:**
-```bash
-venv/bin/python run_ongoing_state.py
-```
-
-El script:
-1. Lee la configuración desde `config.yaml`
-2. Busca los archivos `<log_name>.csv`, `<log_name>.bpmn` y `<log_name>.json` en la carpeta `nuevo/`
-3. Calcula el estado parcial del proceso
-4. Opcionalmente ejecuta simulación de corto plazo (si `simulate: true`)
-
-### Ejemplo
-
-```bash
-# Desde la carpeta nuevo/
-# Asegúrate de tener:
-# - PurchasingExample.csv
-# - PurchasingExample.bpmn (generado por extract_bpmn_json.py)
-# - PurchasingExample.json (generado por extract_bpmn_json.py)
-
-python run_ongoing_state.py
-```
-
-### Qué hace el script
-
-1. **Carga la configuración** desde `config.yaml`
-2. **Verifica archivos** necesarios (log, BPMN, JSON)
-3. **Calcula el estado parcial** del proceso usando `ongoing-bps-state-short-term`:
-   - Procesa el log hasta el cut-off (`start_time` o último evento)
-   - Identifica casos en curso
-   - Calcula el estado de control-flow (tokens, actividades en curso, actividades habilitadas)
-4. **Guarda el estado** en `<log_name>_process_state.json`
-5. **Opcionalmente ejecuta simulación** de corto plazo:
-   - Usa el estado parcial como punto de partida
-   - Simula hasta el horizonte especificado
-   - Genera log y estadísticas de simulación
-
-### Archivos generados
-
-En la carpeta `data/generado-ongoing/` dentro de `nuevo/` (o la especificada en `script_config.output_dir`):
-
-- `<log_name>_process_state.json` - Estado parcial del proceso (siempre se genera)
-- `<log_name>_simulation_stats.csv` - Estadísticas de simulación (solo si `simulate: true`)
-- `<log_name>_simulation_log.csv` - Log de eventos simulados (solo si `simulate: true`)
-
-### Personalización
-
-Para ajustar el comportamiento del script, edita `config.yaml`:
-
-- **Cut-off personalizado**: Especifica `ongoing_config.start_time` con una fecha/hora en formato ISO
-- **Simulación**: Cambia `ongoing_config.simulate` a `true`/`false` para habilitar/deshabilitar simulación
-- **Horizonte**: Especifica `ongoing_config.simulation_horizon` o ajusta `ongoing_config.horizon_days`
-- **Número de casos**: Modifica `ongoing_config.total_cases` para cambiar cuántos casos simular
-
+**Última actualización:** 2024
