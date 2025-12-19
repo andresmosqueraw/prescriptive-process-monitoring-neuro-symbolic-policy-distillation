@@ -1,14 +1,14 @@
 # Configuración para extract_bpmn_json.py
 
 # Rutas a repositorios externos
-# Si son null, los scripts intentarán encontrarlos automáticamente
+# REQUERIDO: Estas rutas deben estar configuradas correctamente
 external_repos:
   # Ruta al repositorio ongoing-bps-state-short-term
-  # Si es null, se busca automáticamente en la estructura del proyecto
+  # DEBE estar configurada, no hay fallback automático
   ongoing_bps_state_path: /home/andrew/Documents/asistencia-graduada-phd-oscar/paper1/repos-asis-online-predictivo/whats-coming-next-short-term-simulation-of-business-processes-from-current-state/ongoing-bps-state-short-term
   
   # Ruta al repositorio Prosimos
-  # Si es null, se busca automáticamente en la estructura del proyecto
+  # DEBE estar configurada, no hay fallback automático
   prosimos_path: /home/andrew/Documents/asistencia-graduada-phd-oscar/paper1/repos-asis-online-predictivo/whats-coming-next-short-term-simulation-of-business-processes-from-current-state/libraries-used/Prosimos
 
 # Configuración del log
@@ -132,27 +132,4 @@ script_config:
     image: "nokal/simod"
     user_id: null  # null = usar os.getuid()
     group_id: null  # null = usar os.getgid()
-
-# Configuración de What-If con reglas declarativas
-# REQUIERE que compute_state.py haya sido ejecutado previamente
-whatif_config:
-  # Ruta al archivo rules.ini con reglas declarativas
-  # Si es null, busca en ubicaciones comunes:
-  #   - data/rules.ini
-  #   - data/{log_name}/rules.ini
-  #   - DeclarativeProcessSimulation/data/0.logs/{log_name}/rules.ini
-  #   - DeclarativeProcessSimulation/GenerativeLSTM/rules.ini
-  rules_path: data/rules.ini  # Ruta relativa desde la carpeta nuevo/
-  
-  # Reglas a aplicar (índices de las reglas activas en rules.ini, 1-indexed)
-  # Si es null, el script preguntará interactivamente qué regla(s) aplicar
-  # Ejemplos:
-  #   selected_rules: [1]        # Aplicar solo la primera regla activa
-  #   selected_rules: [1, 2, 3]  # Aplicar las primeras 3 reglas activas
-  #   selected_rules: null        # Modo interactivo (pregunta al usuario)
-  selected_rules: null  # null | [1] | [1, 2, 3] | ...
-  
-  # Si ejecutar análisis what-if después de calcular el estado
-  # Requiere que compute_state.py haya generado estados parciales
-  enabled: true # true | false
 

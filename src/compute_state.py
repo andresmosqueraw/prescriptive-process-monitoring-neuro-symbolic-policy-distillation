@@ -45,54 +45,34 @@ def load_config(config_path=None):
         print(f"❌ Error leyendo configuración: {e}")
         return None
 
-# Función para encontrar ongoing-bps-state-short-term
-def find_ongoing_bps_path(config=None):
-    """
-    Busca la ruta a ongoing-bps-state-short-term en este orden:
-    1. config.yaml (external_repos.ongoing_bps_state_path)
-    2. Búsqueda automática relativa
-    """
-    # Opción 1: Desde config.yaml
-    if config and config.get("external_repos"):
-        ongoing_bps_path = config["external_repos"].get("ongoing_bps_state_path")
-        if ongoing_bps_path and os.path.exists(ongoing_bps_path):
-            return ongoing_bps_path
-    
-    # Opción 2: Búsqueda relativa desde el proyecto
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    if os.path.basename(script_dir) == "src":
-        base_dir = os.path.dirname(script_dir)
-    else:
-        base_dir = script_dir
-    
-    # Buscar en estructura típica: paper1/repos-asis-online-predictivo/.../ongoing-bps-state-short-term
-    cur = os.path.abspath(base_dir)
-    for _ in range(10):
-        candidate = os.path.join(
-            cur,
-            "repos-asis-online-predictivo",
-            "whats-coming-next-short-term-simulation-of-business-processes-from-current-state",
-            "ongoing-bps-state-short-term"
-        )
-        if os.path.isdir(candidate):
-            return candidate
-        nxt = os.path.dirname(cur)
-        if nxt == cur:
-            break
-        cur = nxt
-    
-    return None
-
-# Cargar configuración temporalmente para obtener rutas
+# Cargar configuración para obtener rutas
 temp_config = load_config()
-ongoing_bps_path = find_ongoing_bps_path(temp_config)
+if temp_config is None:
+    print("❌ No se pudo cargar la configuración desde configs/config.yaml")
+    sys.exit(1)
 
-if ongoing_bps_path is None or not os.path.exists(ongoing_bps_path):
-    print("❌ No se encontró ongoing-bps-state-short-term")
-    print("   Opciones:")
-    print("   1. Configura en configs/config.yaml: external_repos.ongoing_bps_state_path")
-    print("   2. Coloca el repositorio en la estructura esperada:")
-    print("      paper1/repos-asis-online-predictivo/.../ongoing-bps-state-short-term")
+# Obtener ruta a ongoing-bps-state-short-term desde config.yaml
+if not temp_config.get("external_repos"):
+    print("❌ No se encontró la sección 'external_repos' en configs/config.yaml")
+    print("   Agrega la siguiente sección a tu config.yaml:")
+    print("   external_repos:")
+    print("     ongoing_bps_state_path: /ruta/a/ongoing-bps-state-short-term")
+    sys.exit(1)
+
+ongoing_bps_path = temp_config["external_repos"].get("ongoing_bps_state_path")
+
+if not ongoing_bps_path:
+    print("❌ No se encontró 'ongoing_bps_state_path' en configs/config.yaml")
+    print("   Configura la ruta en configs/config.yaml:")
+    print("   external_repos:")
+    print("     ongoing_bps_state_path: /ruta/a/ongoing-bps-state-short-term")
+    sys.exit(1)
+
+if not os.path.exists(ongoing_bps_path):
+    print(f"❌ La ruta configurada no existe: {ongoing_bps_path}")
+    print("   Verifica que la ruta en configs/config.yaml sea correcta:")
+    print(f"   external_repos:")
+    print(f"     ongoing_bps_state_path: {ongoing_bps_path}")
     sys.exit(1)
 
 if ongoing_bps_path not in sys.path:

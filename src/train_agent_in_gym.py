@@ -51,47 +51,40 @@ def load_config(config_path=None):
     except Exception:
         return None
 
-def find_prosimos_path(config=None):
-    """
-    Busca la ruta a Prosimos en este orden:
-    1. config.yaml (external_repos.prosimos_path)
-    2. Búsqueda automática relativa
-    """
-    # Opción 1: Desde config.yaml
-    if config and config.get("external_repos"):
-        prosimos_path = config["external_repos"].get("prosimos_path")
-        if prosimos_path and os.path.isdir(os.path.join(prosimos_path, "prosimos")):
-            return prosimos_path
-    
-    # Opción 2: Búsqueda automática relativa
-    here = os.path.dirname(os.path.abspath(__file__))
-    cur = os.path.abspath(here)
-    for _ in range(10):
-        candidate = os.path.join(cur, "repos-asis-online-predictivo")
-        if os.path.isdir(candidate):
-            root = cur
-            prosimos_parent = os.path.join(
-                root,
-                "repos-asis-online-predictivo",
-                "whats-coming-next-short-term-simulation-of-business-processes-from-current-state",
-                "libraries-used",
-                "Prosimos",
-            )
-            if os.path.isdir(os.path.join(prosimos_parent, "prosimos")):
-                return prosimos_parent
-            break
-        nxt = os.path.dirname(cur)
-        if nxt == cur:
-            break
-        cur = nxt
-    
-    return None
-
 def _maybe_add_local_prosimos_to_syspath() -> None:
     config = load_config()
-    prosimos_path = find_prosimos_path(config)
+    if config is None:
+        print("❌ No se pudo cargar la configuración desde configs/config.yaml")
+        print("   Asegúrate de que el archivo configs/config.yaml existe")
+        return
     
-    if prosimos_path and prosimos_path not in sys.path:
+    if not config.get("external_repos"):
+        print("❌ No se encontró la sección 'external_repos' en configs/config.yaml")
+        print("   Agrega la siguiente sección a tu config.yaml:")
+        print("   external_repos:")
+        print("     prosimos_path: /ruta/a/Prosimos")
+        return
+    
+    prosimos_path = config["external_repos"].get("prosimos_path")
+    
+    if not prosimos_path:
+        print("❌ No se encontró 'prosimos_path' en configs/config.yaml")
+        print("   Configura la ruta en configs/config.yaml:")
+        print("   external_repos:")
+        print("     prosimos_path: /ruta/a/Prosimos")
+        return
+    
+    if not os.path.exists(prosimos_path):
+        print(f"❌ La ruta configurada no existe: {prosimos_path}")
+        print("   Verifica que la ruta en configs/config.yaml sea correcta")
+        return
+    
+    if not os.path.isdir(os.path.join(prosimos_path, "prosimos")):
+        print(f"❌ La ruta no contiene el directorio 'prosimos': {prosimos_path}")
+        print("   Verifica que la ruta apunte al directorio raíz de Prosimos")
+        return
+    
+    if prosimos_path not in sys.path:
         sys.path.insert(0, prosimos_path)
 
 

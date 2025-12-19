@@ -275,20 +275,20 @@ Ver `requirements.txt` para la lista completa.
 
 ### Rutas a Repositorios Externos
 
-El proyecto requiere acceso a repositorios externos (`ongoing-bps-state-short-term` y `Prosimos`). Configúralos en `configs/config.yaml`:
+El proyecto requiere acceso a repositorios externos (`ongoing-bps-state-short-term` y `Prosimos`). **DEBES configurarlos en `configs/config.yaml`**:
 
 ```yaml
 external_repos:
   # Ruta al repositorio ongoing-bps-state-short-term
-  ongoing_bps_state_path: /ruta/a/ongoing-bps-state-short-term  # o null para búsqueda automática
+  # REQUERIDO: Debe estar configurada, no hay fallback automático
+  ongoing_bps_state_path: /ruta/a/ongoing-bps-state-short-term
   
   # Ruta al repositorio Prosimos
-  prosimos_path: /ruta/a/Prosimos  # o null para búsqueda automática
+  # REQUERIDO: Debe estar configurada, no hay fallback automático
+  prosimos_path: /ruta/a/Prosimos
 ```
 
-**Orden de búsqueda:**
-1. **config.yaml** - Configura en `external_repos` (recomendado)
-2. **Búsqueda automática** - Busca en la estructura esperada del proyecto si es `null`
+**IMPORTANTE:** Las rutas deben estar configuradas correctamente en `config.yaml`. Si no están configuradas o son incorrectas, los scripts mostrarán un error y terminarán.
 
 **Instalación de Prosimos:**
 
@@ -342,16 +342,16 @@ docker ps  # Debe funcionar sin errores
 
 **Solución:**
 
-1. **Configurar en config.yaml:**
-   ```yaml
-   external_repos:
-     ongoing_bps_state_path: /ruta/a/ongoing-bps-state-short-term
-   ```
+Configura la ruta en `configs/config.yaml`:
+```yaml
+external_repos:
+  ongoing_bps_state_path: /ruta/a/ongoing-bps-state-short-term
+```
 
-2. **O colocar el repositorio en la estructura esperada:**
-   ```
-   paper1/repos-asis-online-predictivo/.../ongoing-bps-state-short-term
-   ```
+Verifica que:
+- La ruta existe en el sistema de archivos
+- La ruta es absoluta y correcta
+- El directorio contiene el código de `ongoing-bps-state-short-term`
 
 ### Error: "Prosimos no encontrado"
 
@@ -363,12 +363,12 @@ docker ps  # Debe funcionar sin errores
      prosimos_path: /ruta/a/Prosimos
    ```
 
-2. **Instalar Prosimos desde su repositorio:**
+2. **Verificar que la ruta existe y contiene el directorio 'prosimos'**
+
+3. **Instalar Prosimos desde su repositorio:**
    ```bash
    pip install -e /ruta/a/Prosimos
    ```
-
-3. **O editar requirements.txt** con la ruta correcta a Prosimos
 
 ## 📚 Referencias
 

@@ -1,0 +1,130 @@
+{
+    "last_case_arrival": "2011-01-01 20:05:00+00:00",
+    "cases": {
+        "1": {
+            "control_flow_state": {
+                "flows": [],
+                "activities": [
+                    "node_06d32ae2-2f23-40d1-88c9-5c9936baf2dd"
+                ]
+            },
+            "ongoing_activities": [
+                {
+                    "id": "node_06d32ae2-2f23-40d1-88c9-5c9936baf2dd",
+                    "label": "Create Quotation comparison Map",
+                    "start_time": "2011-01-01 18:32:00+00:00",
+                    "resource": "Magdalena Predutta",
+                    "enabled_time": "2011-01-01 18:09:00+00:00"
+                }
+            ],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": []
+        },
+        "2": {
+            "control_flow_state": {
+                "flows": [
+                    "node_1d55a9f3-ced5-4739-81a4-d0da5c4d3b15"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [
+                {
+                    "id": "node_dff3983e-4f54-49cf-840c-c8cfc3f71798",
+                    "enabled_time": "2011-01-01 19:38:00+00:00"
+                }
+            ],
+            "enabled_events": []
+        },
+        "3": {
+            "control_flow_state": {
+                "flows": [
+                    "node_132b11a8-8039-484c-9557-837666e8b43b"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_3ba24211-f6e4-4188-9094-2b991b33b8c5",
+                    "enabled_time": "2011-01-01 09:03:00+00:00"
+                }
+            ]
+        },
+        "4": {
+            "control_flow_state": {
+                "flows": [
+                    "node_132b11a8-8039-484c-9557-837666e8b43b"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_3ba24211-f6e4-4188-9094-2b991b33b8c5",
+                    "enabled_time": "2011-01-01 15:00:00+00:00"
+                }
+            ]
+        },
+        "5": {
+            "control_flow_state": {
+                "flows": [
+                    "node_132b11a8-8039-484c-9557-837666e8b43b"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_3ba24211-f6e4-4188-9094-2b991b33b8c5",
+                    "enabled_time": "2011-01-01 16:35:00+00:00"
+                }
+            ]
+        },
+        "6": {
+            "control_flow_state": {
+                "flows": [
+                    "node_132b11a8-8039-484c-9557-837666e8b43b"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_3ba24211-f6e4-4188-9094-2b991b33b8c5",
+                    "enabled_time": "2011-01-01 17:37:00+00:00"
+                }
+            ]
+        },
+        "7": {
+            "control_flow_state": {
+                "flows": [],
+                "activities": [
+                    "node_2fda0f27-6d07-4bdc-99d1-e8eca3b46ec8"
+                ]
+            },
+            "ongoing_activities": [
+                {
+                    "id": "node_2fda0f27-6d07-4bdc-99d1-e8eca3b46ec8",
+                    "label": "Create Purchase Requisition",
+                    "start_time": "2011-01-01 20:05:00+00:00",
+                    "resource": "Esmana Liubiata",
+                    "enabled_time": "2011-01-01 20:05:00+00:00"
+                }
+            ],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": []
+        }
+    }
+}

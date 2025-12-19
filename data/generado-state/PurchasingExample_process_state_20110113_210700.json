@@ -1,0 +1,1086 @@
+{
+    "last_case_arrival": "2011-01-13 21:07:00+00:00",
+    "cases": {
+        "20": {
+            "control_flow_state": {
+                "flows": [
+                    "node_20370d47-f4a6-40bc-a6da-02dc696bff25"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_9ae1b14a-6b0a-4340-b374-546a65d939e4",
+                    "enabled_time": "2011-01-12 08:58:00+00:00"
+                }
+            ]
+        },
+        "21": {
+            "control_flow_state": {
+                "flows": [
+                    "node_20370d47-f4a6-40bc-a6da-02dc696bff25"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_9ae1b14a-6b0a-4340-b374-546a65d939e4",
+                    "enabled_time": "2011-01-12 07:27:00+00:00"
+                }
+            ]
+        },
+        "24": {
+            "control_flow_state": {
+                "flows": [
+                    "node_20370d47-f4a6-40bc-a6da-02dc696bff25"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_9ae1b14a-6b0a-4340-b374-546a65d939e4",
+                    "enabled_time": "2011-01-12 08:00:00+00:00"
+                }
+            ]
+        },
+        "26": {
+            "control_flow_state": {
+                "flows": [],
+                "activities": [
+                    "node_c4e1b18c-7519-496e-95b4-d4b7a7fcd122"
+                ]
+            },
+            "ongoing_activities": [
+                {
+                    "id": "node_c4e1b18c-7519-496e-95b4-d4b7a7fcd122",
+                    "label": "Deliver Goods Services",
+                    "start_time": "2011-01-13 14:03:00+00:00",
+                    "resource": "Karen Clarens",
+                    "enabled_time": "2011-01-13 06:50:00+00:00"
+                }
+            ],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": []
+        },
+        "28": {
+            "control_flow_state": {
+                "flows": [
+                    "node_20370d47-f4a6-40bc-a6da-02dc696bff25"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_9ae1b14a-6b0a-4340-b374-546a65d939e4",
+                    "enabled_time": "2011-01-12 08:12:00+00:00"
+                }
+            ]
+        },
+        "30": {
+            "control_flow_state": {
+                "flows": [],
+                "activities": [
+                    "node_c4e1b18c-7519-496e-95b4-d4b7a7fcd122"
+                ]
+            },
+            "ongoing_activities": [
+                {
+                    "id": "node_c4e1b18c-7519-496e-95b4-d4b7a7fcd122",
+                    "label": "Deliver Goods Services",
+                    "start_time": "2011-01-12 18:19:00+00:00",
+                    "resource": "Kiu Kan",
+                    "enabled_time": "2011-01-11 18:04:00+00:00"
+                }
+            ],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": []
+        },
+        "33": {
+            "control_flow_state": {
+                "flows": [
+                    "node_20370d47-f4a6-40bc-a6da-02dc696bff25"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_9ae1b14a-6b0a-4340-b374-546a65d939e4",
+                    "enabled_time": "2011-01-12 08:52:00+00:00"
+                }
+            ]
+        },
+        "34": {
+            "control_flow_state": {
+                "flows": [
+                    "node_b1fa6ffb-6f34-45c6-ad0a-3ca39051793f"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_c61b6747-a30f-4bee-8278-f9d46feec91c",
+                    "enabled_time": "2011-01-13 15:22:00+00:00"
+                }
+            ]
+        },
+        "36": {
+            "control_flow_state": {
+                "flows": [
+                    "node_b1fa6ffb-6f34-45c6-ad0a-3ca39051793f"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_c61b6747-a30f-4bee-8278-f9d46feec91c",
+                    "enabled_time": "2011-01-13 14:17:00+00:00"
+                }
+            ]
+        },
+        "37": {
+            "control_flow_state": {
+                "flows": [],
+                "activities": [
+                    "node_c4e1b18c-7519-496e-95b4-d4b7a7fcd122"
+                ]
+            },
+            "ongoing_activities": [
+                {
+                    "id": "node_c4e1b18c-7519-496e-95b4-d4b7a7fcd122",
+                    "label": "Deliver Goods Services",
+                    "start_time": "2011-01-12 20:42:00+00:00",
+                    "resource": "Esmeralda Clay",
+                    "enabled_time": "2011-01-11 07:52:00+00:00"
+                }
+            ],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": []
+        },
+        "38": {
+            "control_flow_state": {
+                "flows": [
+                    "node_a5d72bf2-72c0-4e00-a9a8-eb8fd7e8d895"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_786d3c3e-f58c-4404-9b4b-3f6cabed4cae",
+                    "enabled_time": "2011-01-13 13:41:00+00:00"
+                }
+            ]
+        },
+        "39": {
+            "control_flow_state": {
+                "flows": [],
+                "activities": [
+                    "node_c4e1b18c-7519-496e-95b4-d4b7a7fcd122"
+                ]
+            },
+            "ongoing_activities": [
+                {
+                    "id": "node_c4e1b18c-7519-496e-95b4-d4b7a7fcd122",
+                    "label": "Deliver Goods Services",
+                    "start_time": "2011-01-13 07:42:00+00:00",
+                    "resource": "Sean Manney",
+                    "enabled_time": "2011-01-12 20:42:00+00:00"
+                }
+            ],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": []
+        },
+        "40": {
+            "control_flow_state": {
+                "flows": [
+                    "node_b7e1d973-7f27-4b7f-a2c5-225c34c0eb08"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_3d6dc263-1bd6-43e6-83cd-c0e7504d1ac6",
+                    "enabled_time": "2011-01-13 07:22:00+00:00"
+                }
+            ]
+        },
+        "41": {
+            "control_flow_state": {
+                "flows": [
+                    "node_511b0f9e-597c-417f-8efa-8221458025cb"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_099652ca-c079-4e72-a781-09b27a8f1009",
+                    "enabled_time": "2011-01-13 14:03:00+00:00"
+                }
+            ]
+        },
+        "43": {
+            "control_flow_state": {
+                "flows": [
+                    "node_20370d47-f4a6-40bc-a6da-02dc696bff25"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_9ae1b14a-6b0a-4340-b374-546a65d939e4",
+                    "enabled_time": "2011-01-13 13:31:00+00:00"
+                }
+            ]
+        },
+        "44": {
+            "control_flow_state": {
+                "flows": [
+                    "node_20370d47-f4a6-40bc-a6da-02dc696bff25"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_9ae1b14a-6b0a-4340-b374-546a65d939e4",
+                    "enabled_time": "2011-01-13 10:09:00+00:00"
+                }
+            ]
+        },
+        "45": {
+            "control_flow_state": {
+                "flows": [],
+                "activities": [
+                    "node_c4e1b18c-7519-496e-95b4-d4b7a7fcd122"
+                ]
+            },
+            "ongoing_activities": [
+                {
+                    "id": "node_c4e1b18c-7519-496e-95b4-d4b7a7fcd122",
+                    "label": "Deliver Goods Services",
+                    "start_time": "2011-01-13 07:59:00+00:00",
+                    "resource": "Carmen Finacse",
+                    "enabled_time": "2011-01-12 18:19:00+00:00"
+                }
+            ],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": []
+        },
+        "46": {
+            "control_flow_state": {
+                "flows": [
+                    "node_7229af0a-9a9a-400b-be66-2aeaad67a22d"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_18674460-00b6-4fda-9502-1911715e946b",
+                    "enabled_time": "2011-01-13 16:33:00+00:00"
+                }
+            ]
+        },
+        "47": {
+            "control_flow_state": {
+                "flows": [
+                    "node_b7e1d973-7f27-4b7f-a2c5-225c34c0eb08"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_3d6dc263-1bd6-43e6-83cd-c0e7504d1ac6",
+                    "enabled_time": "2011-01-12 17:47:00+00:00"
+                }
+            ]
+        },
+        "48": {
+            "control_flow_state": {
+                "flows": [
+                    "node_20370d47-f4a6-40bc-a6da-02dc696bff25"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_9ae1b14a-6b0a-4340-b374-546a65d939e4",
+                    "enabled_time": "2011-01-12 08:01:00+00:00"
+                }
+            ]
+        },
+        "50": {
+            "control_flow_state": {
+                "flows": [
+                    "node_20370d47-f4a6-40bc-a6da-02dc696bff25"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_9ae1b14a-6b0a-4340-b374-546a65d939e4",
+                    "enabled_time": "2011-01-13 04:08:00+00:00"
+                }
+            ]
+        },
+        "51": {
+            "control_flow_state": {
+                "flows": [
+                    "node_ec9bbec2-7618-4154-8d21-b740e89d003d"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_c3113f2b-3508-48cd-bc57-79c2adc46526",
+                    "enabled_time": "2011-01-13 14:10:00+00:00"
+                }
+            ]
+        },
+        "52": {
+            "control_flow_state": {
+                "flows": [
+                    "node_b7e1d973-7f27-4b7f-a2c5-225c34c0eb08"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_3d6dc263-1bd6-43e6-83cd-c0e7504d1ac6",
+                    "enabled_time": "2011-01-12 18:12:00+00:00"
+                }
+            ]
+        },
+        "53": {
+            "control_flow_state": {
+                "flows": [
+                    "node_b7e1d973-7f27-4b7f-a2c5-225c34c0eb08"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_3d6dc263-1bd6-43e6-83cd-c0e7504d1ac6",
+                    "enabled_time": "2011-01-13 07:14:00+00:00"
+                }
+            ]
+        },
+        "54": {
+            "control_flow_state": {
+                "flows": [
+                    "node_b7e1d973-7f27-4b7f-a2c5-225c34c0eb08"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_3d6dc263-1bd6-43e6-83cd-c0e7504d1ac6",
+                    "enabled_time": "2011-01-12 20:21:00+00:00"
+                }
+            ]
+        },
+        "55": {
+            "control_flow_state": {
+                "flows": [
+                    "node_7229af0a-9a9a-400b-be66-2aeaad67a22d"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_18674460-00b6-4fda-9502-1911715e946b",
+                    "enabled_time": "2011-01-13 20:00:00+00:00"
+                }
+            ]
+        },
+        "56": {
+            "control_flow_state": {
+                "flows": [
+                    "node_b7e1d973-7f27-4b7f-a2c5-225c34c0eb08"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_3d6dc263-1bd6-43e6-83cd-c0e7504d1ac6",
+                    "enabled_time": "2011-01-13 07:42:00+00:00"
+                }
+            ]
+        },
+        "58": {
+            "control_flow_state": {
+                "flows": [
+                    "node_7229af0a-9a9a-400b-be66-2aeaad67a22d"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_18674460-00b6-4fda-9502-1911715e946b",
+                    "enabled_time": "2011-01-13 16:11:00+00:00"
+                }
+            ]
+        },
+        "59": {
+            "control_flow_state": {
+                "flows": [
+                    "node_b7e1d973-7f27-4b7f-a2c5-225c34c0eb08"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_3d6dc263-1bd6-43e6-83cd-c0e7504d1ac6",
+                    "enabled_time": "2011-01-13 14:03:00+00:00"
+                }
+            ]
+        },
+        "61": {
+            "control_flow_state": {
+                "flows": [
+                    "node_4d141179-691d-4555-822e-7ecce57765cf"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_cc54474f-b3f4-44ab-bba7-223a0ec9f916",
+                    "enabled_time": "2011-01-13 04:48:00+00:00"
+                }
+            ]
+        },
+        "64": {
+            "control_flow_state": {
+                "flows": [
+                    "node_1d55a9f3-ced5-4739-81a4-d0da5c4d3b15"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [
+                {
+                    "id": "node_dff3983e-4f54-49cf-840c-c8cfc3f71798",
+                    "enabled_time": "2011-01-12 15:08:00+00:00"
+                }
+            ],
+            "enabled_events": []
+        },
+        "65": {
+            "control_flow_state": {
+                "flows": [
+                    "node_6bfbe1d2-6355-44c5-8803-7ee38e098c0c"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_c64c7728-ac06-4c35-b65d-6ab638870aa1",
+                    "enabled_time": "2011-01-13 14:08:00+00:00"
+                }
+            ]
+        },
+        "66": {
+            "control_flow_state": {
+                "flows": [
+                    "node_6bfbe1d2-6355-44c5-8803-7ee38e098c0c"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_c64c7728-ac06-4c35-b65d-6ab638870aa1",
+                    "enabled_time": "2011-01-13 00:37:00+00:00"
+                }
+            ]
+        },
+        "67": {
+            "control_flow_state": {
+                "flows": [],
+                "activities": [
+                    "node_bd3a2fd7-0fac-4ea6-93e2-da9c5512d034"
+                ]
+            },
+            "ongoing_activities": [
+                {
+                    "id": "node_bd3a2fd7-0fac-4ea6-93e2-da9c5512d034",
+                    "label": "Settle Conditions With Supplier",
+                    "start_time": "2011-01-13 14:47:00+00:00",
+                    "resource": "Francois de Perrier",
+                    "enabled_time": "2011-01-13 01:45:00+00:00"
+                }
+            ],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": []
+        },
+        "68": {
+            "control_flow_state": {
+                "flows": [],
+                "activities": [
+                    "node_bd3a2fd7-0fac-4ea6-93e2-da9c5512d034"
+                ]
+            },
+            "ongoing_activities": [
+                {
+                    "id": "node_bd3a2fd7-0fac-4ea6-93e2-da9c5512d034",
+                    "label": "Settle Conditions With Supplier",
+                    "start_time": "2011-01-13 14:53:00+00:00",
+                    "resource": "Karel de Groot",
+                    "enabled_time": "2011-01-13 10:42:00+00:00"
+                }
+            ],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": []
+        },
+        "69": {
+            "control_flow_state": {
+                "flows": [
+                    "node_b7e1d973-7f27-4b7f-a2c5-225c34c0eb08"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_3d6dc263-1bd6-43e6-83cd-c0e7504d1ac6",
+                    "enabled_time": "2011-01-12 19:52:00+00:00"
+                }
+            ]
+        },
+        "70": {
+            "control_flow_state": {
+                "flows": [
+                    "node_4d141179-691d-4555-822e-7ecce57765cf"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_cc54474f-b3f4-44ab-bba7-223a0ec9f916",
+                    "enabled_time": "2011-01-13 15:41:00+00:00"
+                }
+            ]
+        },
+        "71": {
+            "control_flow_state": {
+                "flows": [
+                    "node_1d55a9f3-ced5-4739-81a4-d0da5c4d3b15"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [
+                {
+                    "id": "node_dff3983e-4f54-49cf-840c-c8cfc3f71798",
+                    "enabled_time": "2011-01-13 09:15:00+00:00"
+                }
+            ],
+            "enabled_events": []
+        },
+        "73": {
+            "control_flow_state": {
+                "flows": [
+                    "node_6bfbe1d2-6355-44c5-8803-7ee38e098c0c"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_c64c7728-ac06-4c35-b65d-6ab638870aa1",
+                    "enabled_time": "2011-01-13 09:55:00+00:00"
+                }
+            ]
+        },
+        "74": {
+            "control_flow_state": {
+                "flows": [
+                    "node_4d141179-691d-4555-822e-7ecce57765cf"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_cc54474f-b3f4-44ab-bba7-223a0ec9f916",
+                    "enabled_time": "2011-01-12 18:19:00+00:00"
+                }
+            ]
+        },
+        "75": {
+            "control_flow_state": {
+                "flows": [
+                    "node_6bfbe1d2-6355-44c5-8803-7ee38e098c0c"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_c64c7728-ac06-4c35-b65d-6ab638870aa1",
+                    "enabled_time": "2011-01-13 05:37:00+00:00"
+                }
+            ]
+        },
+        "76": {
+            "control_flow_state": {
+                "flows": [
+                    "node_1d55a9f3-ced5-4739-81a4-d0da5c4d3b15"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [
+                {
+                    "id": "node_dff3983e-4f54-49cf-840c-c8cfc3f71798",
+                    "enabled_time": "2011-01-12 13:15:00+00:00"
+                }
+            ],
+            "enabled_events": []
+        },
+        "77": {
+            "control_flow_state": {
+                "flows": [
+                    "node_7229af0a-9a9a-400b-be66-2aeaad67a22d"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_18674460-00b6-4fda-9502-1911715e946b",
+                    "enabled_time": "2011-01-13 05:13:00+00:00"
+                }
+            ]
+        },
+        "78": {
+            "control_flow_state": {
+                "flows": [
+                    "node_7229af0a-9a9a-400b-be66-2aeaad67a22d"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_18674460-00b6-4fda-9502-1911715e946b",
+                    "enabled_time": "2011-01-13 13:57:00+00:00"
+                }
+            ]
+        },
+        "79": {
+            "control_flow_state": {
+                "flows": [
+                    "node_ec9bbec2-7618-4154-8d21-b740e89d003d"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_c3113f2b-3508-48cd-bc57-79c2adc46526",
+                    "enabled_time": "2011-01-13 13:14:00+00:00"
+                }
+            ]
+        },
+        "80": {
+            "control_flow_state": {
+                "flows": [
+                    "node_4d141179-691d-4555-822e-7ecce57765cf"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_cc54474f-b3f4-44ab-bba7-223a0ec9f916",
+                    "enabled_time": "2011-01-12 17:54:00+00:00"
+                }
+            ]
+        },
+        "81": {
+            "control_flow_state": {
+                "flows": [
+                    "node_1d55a9f3-ced5-4739-81a4-d0da5c4d3b15"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [
+                {
+                    "id": "node_dff3983e-4f54-49cf-840c-c8cfc3f71798",
+                    "enabled_time": "2011-01-13 14:53:00+00:00"
+                }
+            ],
+            "enabled_events": []
+        },
+        "83": {
+            "control_flow_state": {
+                "flows": [
+                    "node_5d14021a-b896-4ee2-9edc-67e9c00f9280"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_e28a9730-dd56-403d-9a2d-4f298584831e",
+                    "enabled_time": "2011-01-13 10:08:00+00:00"
+                }
+            ]
+        },
+        "85": {
+            "control_flow_state": {
+                "flows": [],
+                "activities": [
+                    "node_bd3a2fd7-0fac-4ea6-93e2-da9c5512d034"
+                ]
+            },
+            "ongoing_activities": [
+                {
+                    "id": "node_bd3a2fd7-0fac-4ea6-93e2-da9c5512d034",
+                    "label": "Settle Conditions With Supplier",
+                    "start_time": "2011-01-13 14:08:00+00:00",
+                    "resource": "Magdalena Predutta",
+                    "enabled_time": "2011-01-13 10:42:00+00:00"
+                }
+            ],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": []
+        },
+        "87": {
+            "control_flow_state": {
+                "flows": [
+                    "node_1d55a9f3-ced5-4739-81a4-d0da5c4d3b15"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [
+                {
+                    "id": "node_dff3983e-4f54-49cf-840c-c8cfc3f71798",
+                    "enabled_time": "2011-01-13 13:30:00+00:00"
+                }
+            ],
+            "enabled_events": []
+        },
+        "91": {
+            "control_flow_state": {
+                "flows": [
+                    "node_4d141179-691d-4555-822e-7ecce57765cf"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_cc54474f-b3f4-44ab-bba7-223a0ec9f916",
+                    "enabled_time": "2011-01-13 13:23:00+00:00"
+                }
+            ]
+        },
+        "92": {
+            "control_flow_state": {
+                "flows": [
+                    "node_4d141179-691d-4555-822e-7ecce57765cf"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_cc54474f-b3f4-44ab-bba7-223a0ec9f916",
+                    "enabled_time": "2011-01-13 20:47:00+00:00"
+                }
+            ]
+        },
+        "93": {
+            "control_flow_state": {
+                "flows": [
+                    "node_4d141179-691d-4555-822e-7ecce57765cf"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_cc54474f-b3f4-44ab-bba7-223a0ec9f916",
+                    "enabled_time": "2011-01-13 07:08:00+00:00"
+                }
+            ]
+        },
+        "94": {
+            "control_flow_state": {
+                "flows": [
+                    "node_4d141179-691d-4555-822e-7ecce57765cf"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_cc54474f-b3f4-44ab-bba7-223a0ec9f916",
+                    "enabled_time": "2011-01-13 08:01:00+00:00"
+                }
+            ]
+        },
+        "96": {
+            "control_flow_state": {
+                "flows": [
+                    "node_4d141179-691d-4555-822e-7ecce57765cf"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_cc54474f-b3f4-44ab-bba7-223a0ec9f916",
+                    "enabled_time": "2011-01-13 15:21:00+00:00"
+                }
+            ]
+        },
+        "98": {
+            "control_flow_state": {
+                "flows": [
+                    "node_132b11a8-8039-484c-9557-837666e8b43b"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_3ba24211-f6e4-4188-9094-2b991b33b8c5",
+                    "enabled_time": "2011-01-13 15:24:00+00:00"
+                }
+            ]
+        },
+        "99": {
+            "control_flow_state": {
+                "flows": [
+                    "node_132b11a8-8039-484c-9557-837666e8b43b"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_3ba24211-f6e4-4188-9094-2b991b33b8c5",
+                    "enabled_time": "2011-01-13 16:44:00+00:00"
+                }
+            ]
+        },
+        "100": {
+            "control_flow_state": {
+                "flows": [
+                    "node_132b11a8-8039-484c-9557-837666e8b43b"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_3ba24211-f6e4-4188-9094-2b991b33b8c5",
+                    "enabled_time": "2011-01-13 18:19:00+00:00"
+                }
+            ]
+        },
+        "101": {
+            "control_flow_state": {
+                "flows": [
+                    "node_132b11a8-8039-484c-9557-837666e8b43b"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_3ba24211-f6e4-4188-9094-2b991b33b8c5",
+                    "enabled_time": "2011-01-13 18:56:00+00:00"
+                }
+            ]
+        },
+        "102": {
+            "control_flow_state": {
+                "flows": [
+                    "node_4d141179-691d-4555-822e-7ecce57765cf"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_cc54474f-b3f4-44ab-bba7-223a0ec9f916",
+                    "enabled_time": "2011-01-13 20:20:00+00:00"
+                }
+            ]
+        },
+        "103": {
+            "control_flow_state": {
+                "flows": [
+                    "node_132b11a8-8039-484c-9557-837666e8b43b"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_3ba24211-f6e4-4188-9094-2b991b33b8c5",
+                    "enabled_time": "2011-01-13 20:07:00+00:00"
+                }
+            ]
+        },
+        "104": {
+            "control_flow_state": {
+                "flows": [],
+                "activities": [
+                    "node_2fda0f27-6d07-4bdc-99d1-e8eca3b46ec8"
+                ]
+            },
+            "ongoing_activities": [
+                {
+                    "id": "node_2fda0f27-6d07-4bdc-99d1-e8eca3b46ec8",
+                    "label": "Create Purchase Requisition",
+                    "start_time": "2011-01-13 21:07:00+00:00",
+                    "resource": "Anna Kaufmann",
+                    "enabled_time": "2011-01-13 21:07:00+00:00"
+                }
+            ],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": []
+        }
+    }
+}
