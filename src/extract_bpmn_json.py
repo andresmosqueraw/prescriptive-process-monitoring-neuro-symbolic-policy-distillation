@@ -14,7 +14,7 @@ import yaml
 from pathlib import Path
 from typing import Dict, Any, Optional, Tuple
 
-from utils.config import load_config
+from utils.config import load_config, get_log_name_from_path, build_output_path
 from utils.logging import setup_logger
 
 # Configurar logger
@@ -310,24 +310,11 @@ def extract_bpmn_json(
         log_ext = os.path.splitext(os.path.splitext(log_filename)[0])[1].lower()
     
     is_xes = log_ext in ['.xes']
-    log_name = os.path.splitext(log_filename)[0]
-    if log_name.endswith('.xes'):
-        log_name = os.path.splitext(log_name)[0]
+    log_name = get_log_name_from_path(log_path)
     
-    # Determinar directorio de salida
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    # Si estamos en src/, subir un nivel para llegar a nuevo/
-    if os.path.basename(script_dir) == "src":
-        base_dir = os.path.dirname(script_dir)
-    else:
-        base_dir = script_dir
-    
-    output_dir = script_config.get("output_dir")
-    if output_dir is None:
-        # Por defecto: data/generado-simod dentro de la carpeta "nuevo"
-        output_dir = os.path.join(base_dir, "data", "generado-simod")
-    else:
-        output_dir = os.path.abspath(output_dir)
+    # Determinar directorio de salida (incluyendo nombre del log)
+    output_dir_base = script_config.get("output_dir")
+    output_dir = build_output_path(output_dir_base, log_name, "simod", default_base="data")
     
     # Crear directorio de salida si no existe
     os.makedirs(output_dir, exist_ok=True)

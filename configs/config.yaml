@@ -16,7 +16,7 @@ log_config:
   # Ruta al archivo CSV del log original/base
   # Si es null, se debe proporcionar como argumento de línea de comandos
   # Si se especifica aquí, se puede ejecutar sin argumentos
-  log_path: logs/PurchasingExample.csv  # Ejemplo: "../../data/0.logs/PurchasingExample/PurchasingExample.csv"
+  log_path: logs/purchasing-example.csv  # Ejemplo: "../../data/0.logs/PurchasingExample/PurchasingExample.csv"
   
   # Mapeo de columnas del log (ajustar según el formato del log)
   column_mapping:
@@ -112,20 +112,24 @@ ongoing_config:
 
 # Configuración del script
 script_config:
-  # Directorio donde se guardarán los archivos generados por Simod
-  # Si es null, se usa data/generado-simod dentro de la carpeta nuevo/
+  # Directorio base donde se guardarán los archivos generados por Simod
+  # El nombre del log se insertará automáticamente: results/{log_name}/simod/
+  # Si es null, se usa data/generado-simod dentro de la carpeta del proyecto
   output_dir: results/simod/
   
-  # Directorio donde se guardará el estado parcial (compute_state.py)
-  # Si es null, se usa data/generado-state dentro de la carpeta nuevo/
+  # Directorio base donde se guardará el estado parcial (compute_state.py)
+  # El nombre del log se insertará automáticamente: results/{log_name}/state/
+  # Si es null, se usa data/generado-state dentro de la carpeta del proyecto
   state_output_dir: results/state/
   
-  # Directorio donde se guardará el experience buffer del RL (train_agent_in_gym.py)
+  # Directorio base donde se guardará el experience buffer del RL (train_agent_in_gym.py)
+  # El nombre del log se insertará automáticamente: results/{log_name}/rl/
   # Si es null, se usa data/generado-rl-train dentro de la carpeta del proyecto
   rl_output_dir: results/rl/
   
-  # Directorio donde se guardará el modelo destilado (distill_policy.py)
-  # Si es null, se usa data/ dentro de la carpeta del proyecto
+  # Directorio base donde se guardará el modelo destilado (distill_policy.py)
+  # El nombre del log se insertará automáticamente: results/{log_name}/distill/
+  # Si es null, se usa data dentro de la carpeta del proyecto
   distill_output_dir: results/distill/
   
   # Prefijo para directorios temporales (se crean en la carpeta del log)
@@ -157,12 +161,14 @@ rl_config:
 # Configuración de destilación de política (distill_policy.py)
 distill_config:
   # Ruta al archivo experience buffer (entrada)
-  # Si es null, se usa data/generado-rl-train/experience_buffer.csv
-  input_csv: results/rl/experience_buffer.csv
+  # El nombre del log se insertará automáticamente: results/{log_name}/rl/experience_buffer.csv
+  # Si es null, se construye automáticamente usando rl_output_dir
+  input_csv: null
   
   # Ruta donde se guardará el modelo destilado (salida)
-  # Si es null, se usa data/final_policy_model.pkl
-  output_model: results/distill/final_policy_model.pkl
+  # El nombre del log se insertará automáticamente: results/{log_name}/distill/final_policy_model.pkl
+  # Si es null, se construye automáticamente usando distill_output_dir
+  output_model: null
   
   # Profundidad máxima del árbol de decisión
   max_depth: 5

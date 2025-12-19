@@ -16,7 +16,7 @@ import tempfile
 from datetime import datetime
 from typing import Dict, Any, Optional, List
 
-from utils.config import load_config
+from utils.config import load_config, get_log_name_from_path, build_output_path
 from utils.logging import setup_logger
 
 # Configurar logger
@@ -65,17 +65,7 @@ if ongoing_bps_path not in sys.path:
 # Importar después de agregar paths
 from src.runner import run_process_state_and_simulation
 
-def get_log_name_from_path(log_path: str) -> str:
-    """
-    Extrae el nombre del log desde la ruta.
-    
-    Args:
-        log_path: Ruta al archivo del log
-    
-    Returns:
-        Nombre del log sin extensión
-    """
-    return os.path.splitext(os.path.basename(log_path))[0]
+# get_log_name_from_path ahora se importa de utils.config
 
 def compute_cut_points(
     log_df: pd.DataFrame,
@@ -190,48 +180,36 @@ def compute_state(config: Optional[Dict[str, Any]] = None) -> Optional[List[str]
     log_config = config.get("log_config", {})
     script_config = config.get("script_config", {})
     
-    # Obtener rutas de archivos
+    # Obtener ruta del log primero para extraer el nombre
     script_dir = os.path.dirname(os.path.abspath(__file__))
     if os.path.basename(script_dir) == "src":
         base_dir = os.path.dirname(script_dir)
     else:
         base_dir = script_dir
     
-    # Directorio de salida para estado parcial
-    output_dir = script_config.get("state_output_dir")
-    if output_dir is None:
-        output_dir = os.path.join(base_dir, "data", "generado-state")
-    else:
-        # Si es relativa, hacerla absoluta
-        if not os.path.isabs(output_dir):
-            output_dir = os.path.join(base_dir, output_dir)
-        else:
-            output_dir = os.path.abspath(output_dir)
-    
-    # Crear directorio de salida si no existe
-    os.makedirs(output_dir, exist_ok=True)
-    
-    # Obtener ruta del log
     log_path = log_config.get("log_path")
     if not log_path:
         logger.error("No se especificó log_path en config.yaml")
         return None
     
-    # Si es una ruta relativa, hacerla relativa al directorio base (nuevo/)
+    # Si es una ruta relativa, hacerla relativa al directorio base
     if not os.path.isabs(log_path):
         log_path = os.path.join(base_dir, log_path)
     
     # Obtener nombre del log
     log_name = get_log_name_from_path(log_path)
     
+    # Directorio de salida para estado parcial (incluyendo nombre del log)
+    state_output_dir_base = script_config.get("state_output_dir")
+    output_dir = build_output_path(state_output_dir_base, log_name, "state", default_base="data")
+    
+    # Crear directorio de salida si no existe
+    os.makedirs(output_dir, exist_ok=True)
+    
     # Rutas de BPMN y JSON - usar script_config.output_dir (donde Simod guarda los archivos)
-    simod_output_dir = script_config.get("output_dir")
-    if simod_output_dir is None:
-        simod_output_dir = os.path.join(base_dir, "data", "generado-simod")
-    else:
-        # Si es relativa, hacerla absoluta
-        if not os.path.isabs(simod_output_dir):
-            simod_output_dir = os.path.join(base_dir, simod_output_dir)
+    # Incluir nombre del log en la ruta
+    simod_output_dir_base = script_config.get("output_dir")
+    simod_output_dir = build_output_path(simod_output_dir_base, log_name, "simod", default_base="data")
     
     bpmn_path = os.path.join(simod_output_dir, f"{log_name}.bpmn")
     json_path = os.path.join(simod_output_dir, f"{log_name}.json")

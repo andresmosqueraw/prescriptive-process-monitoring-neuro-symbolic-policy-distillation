@@ -24,7 +24,7 @@ from datetime import datetime
 from collections import deque
 from typing import Dict, Any, Optional, List, Callable, Tuple
 
-from utils.config import load_config
+from utils.config import load_config, get_log_name_from_path, build_output_path
 from utils.logging import setup_logger
 
 # Configurar logger
@@ -519,22 +519,25 @@ def run_causal_gym_training(
         logger.info(f"  Buffer size: {len(experience_buffer)} experiencias recolectadas")
 
     # 4. Exportar Experience Buffer para Fase 3 (Distillation)
-    # Determinar directorio de salida
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    if os.path.basename(script_dir) == "src":
-        base_dir = os.path.dirname(script_dir)
-    else:
-        base_dir = script_dir
-    
-    rl_output_dir = script_config.get("rl_output_dir")
-    if rl_output_dir is None:
-        rl_output_dir = os.path.join(base_dir, "data", "generado-rl-train")
-    else:
-        # Si es relativa, hacerla absoluta
-        if not os.path.isabs(rl_output_dir):
-            rl_output_dir = os.path.join(base_dir, rl_output_dir)
+    # Obtener nombre del log desde config para construir rutas
+    log_config = config.get("log_config", {})
+    log_path_for_name = log_config.get("log_path")
+    if log_path_for_name:
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        if os.path.basename(script_dir) == "src":
+            base_dir = os.path.dirname(script_dir)
         else:
-            rl_output_dir = os.path.abspath(rl_output_dir)
+            base_dir = script_dir
+        if not os.path.isabs(log_path_for_name):
+            log_path_for_name = os.path.join(base_dir, log_path_for_name)
+        log_name = get_log_name_from_path(log_path_for_name)
+    else:
+        # Fallback: usar nombre genérico
+        log_name = "default"
+    
+    # Obtener directorio de salida para experience buffer (incluyendo nombre del log)
+    rl_output_dir_base = script_config.get("rl_output_dir")
+    rl_output_dir = build_output_path(rl_output_dir_base, log_name, "rl", default_base="data")
     
     os.makedirs(rl_output_dir, exist_ok=True)
     output_file = os.path.join(rl_output_dir, "experience_buffer.csv")
@@ -581,20 +584,11 @@ def main() -> None:
         log_path = os.path.join(base_dir, log_path)
     
     # Obtener nombre del log (sin extensión)
-    log_name = os.path.splitext(os.path.basename(log_path))[0]
-    if log_name.endswith('.xes'):
-        log_name = os.path.splitext(log_name)[0]
+    log_name = get_log_name_from_path(log_path)
     
-    # Obtener directorio de salida de Simod
-    simod_output_dir = script_config.get("output_dir")
-    if simod_output_dir is None:
-        simod_output_dir = os.path.join(base_dir, "data", "generado-simod")
-    else:
-        # Si es relativa, hacerla absoluta
-        if not os.path.isabs(simod_output_dir):
-            simod_output_dir = os.path.join(base_dir, simod_output_dir)
-        else:
-            simod_output_dir = os.path.abspath(simod_output_dir)
+    # Obtener directorio de salida de Simod (incluyendo nombre del log)
+    simod_output_dir_base = script_config.get("output_dir")
+    simod_output_dir = build_output_path(simod_output_dir_base, log_name, "simod", default_base="data")
     
     # Construir rutas de BPMN y JSON
     bpmn_file = os.path.join(simod_output_dir, f"{log_name}.bpmn")

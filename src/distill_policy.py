@@ -26,7 +26,7 @@ from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.pipeline import Pipeline
 from sklearn.metrics import classification_report, accuracy_score
 
-from utils.config import load_config
+from utils.config import load_config, get_log_name_from_path, build_output_path
 from utils.logging import setup_logger
 
 # Configurar logger
@@ -204,6 +204,7 @@ def main() -> None:
     
     distill_config = config.get("distill_config", {})
     script_config = config.get("script_config", {})
+    log_config = config.get("log_config", {})
     
     # Obtener directorio base
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -212,19 +213,32 @@ def main() -> None:
     else:
         base_dir = script_dir
     
-    # Obtener rutas de entrada y salida
+    # Obtener nombre del log para construir rutas
+    log_path = log_config.get("log_path")
+    if log_path:
+        if not os.path.isabs(log_path):
+            log_path = os.path.join(base_dir, log_path)
+        log_name = get_log_name_from_path(log_path)
+    else:
+        # Fallback: intentar extraer del input_csv si está configurado
+        input_csv_temp = distill_config.get("input_csv")
+        if input_csv_temp and os.path.basename(input_csv_temp) == "experience_buffer.csv":
+            # Intentar extraer nombre del log de la ruta
+            # Ej: "results/PurchasingExample/rl/experience_buffer.csv"
+            parts = input_csv_temp.split('/')
+            if len(parts) >= 2:
+                log_name = parts[-3] if len(parts) >= 3 else "default"
+            else:
+                log_name = "default"
+        else:
+            log_name = "default"
+    
+    # Obtener rutas de entrada y salida (incluyendo nombre del log)
     input_csv = distill_config.get("input_csv")
     if input_csv is None:
-        # Usar ruta por defecto
-        rl_output_dir = script_config.get("rl_output_dir")
-        if rl_output_dir is None:
-            rl_output_dir = os.path.join(base_dir, "data", "generado-rl-train")
-        else:
-            # Si es relativa, hacerla absoluta
-            if not os.path.isabs(rl_output_dir):
-                rl_output_dir = os.path.join(base_dir, rl_output_dir)
-            else:
-                rl_output_dir = os.path.abspath(rl_output_dir)
+        # Construir ruta usando build_output_path
+        rl_output_dir_base = script_config.get("rl_output_dir")
+        rl_output_dir = build_output_path(rl_output_dir_base, log_name, "rl", default_base="data")
         input_csv = os.path.join(rl_output_dir, "experience_buffer.csv")
     else:
         # Si es relativa, hacerla absoluta
@@ -233,16 +247,9 @@ def main() -> None:
     
     output_model = distill_config.get("output_model")
     if output_model is None:
-        # Usar ruta por defecto
-        distill_output_dir = script_config.get("distill_output_dir")
-        if distill_output_dir is None:
-            distill_output_dir = os.path.join(base_dir, "data")
-        else:
-            # Si es relativa, hacerla absoluta
-            if not os.path.isabs(distill_output_dir):
-                distill_output_dir = os.path.join(base_dir, distill_output_dir)
-            else:
-                distill_output_dir = os.path.abspath(distill_output_dir)
+        # Construir ruta usando build_output_path
+        distill_output_dir_base = script_config.get("distill_output_dir")
+        distill_output_dir = build_output_path(distill_output_dir_base, log_name, "distill", default_base="data")
         output_model = os.path.join(distill_output_dir, "final_policy_model.pkl")
     else:
         # Si es relativa, hacerla absoluta
