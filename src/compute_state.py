@@ -23,19 +23,6 @@ if not hasattr(sys, 'real_prefix') and not (hasattr(sys, 'base_prefix') and sys.
         print("   O ejecuta el script con: venv/bin/python compute_state.py")
         print()
 
-# Agregar path de ongoing-bps-state
-ongoing_bps_path = "/home/andrew/Documents/asistencia-graduada-phd-oscar/paper1/repos-asis-online-predictivo/whats-coming-next-short-term-simulation-of-business-processes-from-current-state/ongoing-bps-state-short-term"
-
-if not os.path.exists(ongoing_bps_path):
-    print(f"❌ No se encontró la carpeta ongoing-bps-state-short-term en: {ongoing_bps_path}")
-    sys.exit(1)
-
-if ongoing_bps_path not in sys.path:
-    sys.path.insert(0, ongoing_bps_path)
-
-# Importar después de agregar paths
-from src.runner import run_process_state_and_simulation
-
 def load_config(config_path=None):
     """Carga la configuración desde el archivo YAML"""
     if config_path is None:
@@ -57,6 +44,62 @@ def load_config(config_path=None):
     except Exception as e:
         print(f"❌ Error leyendo configuración: {e}")
         return None
+
+# Función para encontrar ongoing-bps-state-short-term
+def find_ongoing_bps_path(config=None):
+    """
+    Busca la ruta a ongoing-bps-state-short-term en este orden:
+    1. config.yaml (external_repos.ongoing_bps_state_path)
+    2. Búsqueda automática relativa
+    """
+    # Opción 1: Desde config.yaml
+    if config and config.get("external_repos"):
+        ongoing_bps_path = config["external_repos"].get("ongoing_bps_state_path")
+        if ongoing_bps_path and os.path.exists(ongoing_bps_path):
+            return ongoing_bps_path
+    
+    # Opción 2: Búsqueda relativa desde el proyecto
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    if os.path.basename(script_dir) == "src":
+        base_dir = os.path.dirname(script_dir)
+    else:
+        base_dir = script_dir
+    
+    # Buscar en estructura típica: paper1/repos-asis-online-predictivo/.../ongoing-bps-state-short-term
+    cur = os.path.abspath(base_dir)
+    for _ in range(10):
+        candidate = os.path.join(
+            cur,
+            "repos-asis-online-predictivo",
+            "whats-coming-next-short-term-simulation-of-business-processes-from-current-state",
+            "ongoing-bps-state-short-term"
+        )
+        if os.path.isdir(candidate):
+            return candidate
+        nxt = os.path.dirname(cur)
+        if nxt == cur:
+            break
+        cur = nxt
+    
+    return None
+
+# Cargar configuración temporalmente para obtener rutas
+temp_config = load_config()
+ongoing_bps_path = find_ongoing_bps_path(temp_config)
+
+if ongoing_bps_path is None or not os.path.exists(ongoing_bps_path):
+    print("❌ No se encontró ongoing-bps-state-short-term")
+    print("   Opciones:")
+    print("   1. Configura en configs/config.yaml: external_repos.ongoing_bps_state_path")
+    print("   2. Coloca el repositorio en la estructura esperada:")
+    print("      paper1/repos-asis-online-predictivo/.../ongoing-bps-state-short-term")
+    sys.exit(1)
+
+if ongoing_bps_path not in sys.path:
+    sys.path.insert(0, ongoing_bps_path)
+
+# Importar después de agregar paths
+from src.runner import run_process_state_and_simulation
 
 def get_log_name_from_path(log_path):
     """Extrae el nombre del log desde la ruta"""

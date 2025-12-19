@@ -2,9 +2,17 @@
 log-distance-measures==2.1.0
 pix-framework==0.14.2
 ongoing-process-state==2.1.2
+
 # Prosimos se instala desde repo clonado
-# Ruta absoluta desde la carpeta nuevo
--e /home/andrew/Documents/asistencia-graduada-phd-oscar/paper1/repos-asis-online-predictivo/whats-coming-next-short-term-simulation-of-business-processes-from-current-state/libraries-used/Prosimos
+# IMPORTANTE: Configura la ruta en configs/config.yaml (external_repos.prosimos_path)
+# Luego instala con:
+#   pip install -e /ruta/a/tu/Prosimos
+# 
+# O descomenta y ajusta la siguiente línea con tu ruta local:
+# -e /ruta/a/tu/Prosimos
+# 
+# Ejemplo de estructura esperada:
+#   paper1/repos-asis-online-predictivo/.../libraries-used/Prosimos
 pandas==2.2.3
 numpy==1.26.4
 networkx==3.4.2

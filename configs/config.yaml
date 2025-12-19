@@ -1,5 +1,16 @@
 # Configuración para extract_bpmn_json.py
 
+# Rutas a repositorios externos
+# Si son null, los scripts intentarán encontrarlos automáticamente
+external_repos:
+  # Ruta al repositorio ongoing-bps-state-short-term
+  # Si es null, se busca automáticamente en la estructura del proyecto
+  ongoing_bps_state_path: /home/andrew/Documents/asistencia-graduada-phd-oscar/paper1/repos-asis-online-predictivo/whats-coming-next-short-term-simulation-of-business-processes-from-current-state/ongoing-bps-state-short-term
+  
+  # Ruta al repositorio Prosimos
+  # Si es null, se busca automáticamente en la estructura del proyecto
+  prosimos_path: /home/andrew/Documents/asistencia-graduada-phd-oscar/paper1/repos-asis-online-predictivo/whats-coming-next-short-term-simulation-of-business-processes-from-current-state/libraries-used/Prosimos
+
 # Configuración del log
 log_config:
   # Ruta al archivo CSV del log original/base

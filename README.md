@@ -221,6 +221,11 @@ python src/distill_policy.py
 El archivo `configs/config.yaml` contiene toda la configuración del pipeline:
 
 ```yaml
+# Rutas a repositorios externos
+external_repos:
+  ongoing_bps_state_path: null  # o "/ruta/a/ongoing-bps-state-short-term"
+  prosimos_path: null  # o "/ruta/a/Prosimos"
+
 # Configuración del log
 log_config:
   log_path: logs/PurchasingExample.csv
@@ -268,7 +273,33 @@ Las dependencias principales incluyen:
 
 Ver `requirements.txt` para la lista completa.
 
-**Nota:** Algunas dependencias requieren rutas locales. Ajusta `requirements.txt` según tu configuración.
+### Rutas a Repositorios Externos
+
+El proyecto requiere acceso a repositorios externos (`ongoing-bps-state-short-term` y `Prosimos`). Configúralos en `configs/config.yaml`:
+
+```yaml
+external_repos:
+  # Ruta al repositorio ongoing-bps-state-short-term
+  ongoing_bps_state_path: /ruta/a/ongoing-bps-state-short-term  # o null para búsqueda automática
+  
+  # Ruta al repositorio Prosimos
+  prosimos_path: /ruta/a/Prosimos  # o null para búsqueda automática
+```
+
+**Orden de búsqueda:**
+1. **config.yaml** - Configura en `external_repos` (recomendado)
+2. **Búsqueda automática** - Busca en la estructura esperada del proyecto si es `null`
+
+**Instalación de Prosimos:**
+
+Prosimos debe instalarse desde su repositorio local. Si está configurado en `config.yaml`, usa esa ruta:
+
+```bash
+# Edita configs/config.yaml con la ruta a Prosimos, luego:
+pip install -e /ruta/a/Prosimos
+
+# O edita requirements.txt con la ruta correcta
+```
 
 ## 📊 Archivos Generados
 
@@ -309,11 +340,35 @@ docker ps  # Debe funcionar sin errores
 
 ### Error: "No se encontró ongoing-bps-state-short-term"
 
-Algunos scripts requieren rutas a repositorios locales. Ajusta las rutas en los scripts según tu configuración.
+**Solución:**
+
+1. **Configurar en config.yaml:**
+   ```yaml
+   external_repos:
+     ongoing_bps_state_path: /ruta/a/ongoing-bps-state-short-term
+   ```
+
+2. **O colocar el repositorio en la estructura esperada:**
+   ```
+   paper1/repos-asis-online-predictivo/.../ongoing-bps-state-short-term
+   ```
 
 ### Error: "Prosimos no encontrado"
 
-Verifica que Prosimos esté instalado correctamente. La ruta en `requirements.txt` debe apuntar a tu instalación local.
+**Solución:**
+
+1. **Configurar en config.yaml:**
+   ```yaml
+   external_repos:
+     prosimos_path: /ruta/a/Prosimos
+   ```
+
+2. **Instalar Prosimos desde su repositorio:**
+   ```bash
+   pip install -e /ruta/a/Prosimos
+   ```
+
+3. **O editar requirements.txt** con la ruta correcta a Prosimos
 
 ## 📚 Referencias
 

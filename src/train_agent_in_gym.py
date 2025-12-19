@@ -31,41 +31,68 @@ from collections import deque
 # En este repo, Prosimos suele estar en:
 #   paper1/repos-asis-online-predictivo/.../libraries-used/Prosimos/
 # y dentro existe el paquete/namespace `prosimos/`.
-def _maybe_add_local_prosimos_to_syspath() -> None:
+
+def load_config(config_path=None):
+    """Carga la configuración desde el archivo YAML"""
+    if config_path is None:
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        if os.path.basename(script_dir) == "src":
+            base_dir = os.path.dirname(script_dir)
+        else:
+            base_dir = script_dir
+        config_path = os.path.join(base_dir, "configs/config.yaml")
+    
+    if not os.path.exists(config_path):
+        return None
+    
+    try:
+        with open(config_path, 'r') as f:
+            return yaml.safe_load(f)
+    except Exception:
+        return None
+
+def find_prosimos_path(config=None):
+    """
+    Busca la ruta a Prosimos en este orden:
+    1. config.yaml (external_repos.prosimos_path)
+    2. Búsqueda automática relativa
+    """
+    # Opción 1: Desde config.yaml
+    if config and config.get("external_repos"):
+        prosimos_path = config["external_repos"].get("prosimos_path")
+        if prosimos_path and os.path.isdir(os.path.join(prosimos_path, "prosimos")):
+            return prosimos_path
+    
+    # Opción 2: Búsqueda automática relativa
     here = os.path.dirname(os.path.abspath(__file__))
-    # Buscar un "root" que contenga repos-asis-online-predictivo
-    root = None
     cur = os.path.abspath(here)
     for _ in range(10):
         candidate = os.path.join(cur, "repos-asis-online-predictivo")
         if os.path.isdir(candidate):
             root = cur
+            prosimos_parent = os.path.join(
+                root,
+                "repos-asis-online-predictivo",
+                "whats-coming-next-short-term-simulation-of-business-processes-from-current-state",
+                "libraries-used",
+                "Prosimos",
+            )
+            if os.path.isdir(os.path.join(prosimos_parent, "prosimos")):
+                return prosimos_parent
             break
         nxt = os.path.dirname(cur)
         if nxt == cur:
             break
         cur = nxt
+    
+    return None
 
-    # Si encontramos root, agregamos el Prosimos "padre" al sys.path
-    if root:
-        prosimos_parent = os.path.join(
-            root,
-            "repos-asis-online-predictivo",
-            "whats-coming-next-short-term-simulation-of-business-processes-from-current-state",
-            "libraries-used",
-            "Prosimos",
-        )
-        if os.path.isdir(os.path.join(prosimos_parent, "prosimos")) and prosimos_parent not in sys.path:
-            sys.path.insert(0, prosimos_parent)
-
-    # Fallback: ruta absoluta conocida (por si el script se ejecuta desde otro lugar)
-    known_parent = (
-        "/home/andrew/Documents/asistencia-graduada-phd-oscar/paper1/"
-        "repos-asis-online-predictivo/whats-coming-next-short-term-simulation-of-business-processes-from-current-state/"
-        "libraries-used/Prosimos"
-    )
-    if os.path.isdir(os.path.join(known_parent, "prosimos")) and known_parent not in sys.path:
-        sys.path.insert(0, known_parent)
+def _maybe_add_local_prosimos_to_syspath() -> None:
+    config = load_config()
+    prosimos_path = find_prosimos_path(config)
+    
+    if prosimos_path and prosimos_path not in sys.path:
+        sys.path.insert(0, prosimos_path)
 
 
 _maybe_add_local_prosimos_to_syspath()
