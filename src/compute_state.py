@@ -12,68 +12,51 @@ import yaml
 import pandas as pd
 import numpy as np
 import gzip
+import tempfile
 from datetime import datetime
+from typing import Dict, Any, Optional, List
+
+from utils.config import load_config
+from utils.logging import setup_logger
+
+# Configurar logger
+logger = setup_logger(__name__)
 
 # Verificar si estamos en un entorno virtual
 if not hasattr(sys, 'real_prefix') and not (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix):
     script_dir = os.path.dirname(os.path.abspath(__file__))
     venv_python = os.path.join(script_dir, "venv", "bin", "python")
     if os.path.exists(venv_python):
-        print("⚠️  No se detectó entorno virtual activo.")
-        print(f"💡 Ejecuta: source {script_dir}/venv/bin/activate")
-        print("   O ejecuta el script con: venv/bin/python compute_state.py")
-        print()
-
-def load_config(config_path=None):
-    """Carga la configuración desde el archivo YAML"""
-    if config_path is None:
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        if os.path.basename(script_dir) == "src":
-            base_dir = os.path.dirname(script_dir)
-        else:
-            base_dir = script_dir
-        config_path = os.path.join(base_dir, "configs/config.yaml")
-    
-    if not os.path.exists(config_path):
-        print(f"❌ No se encontró archivo de configuración: {config_path}")
-        return None
-    
-    try:
-        with open(config_path, 'r') as f:
-            config = yaml.safe_load(f)
-        return config
-    except Exception as e:
-        print(f"❌ Error leyendo configuración: {e}")
-        return None
+        logger.warning("No se detectó entorno virtual activo.")
+        logger.info(f"Ejecuta: source {script_dir}/venv/bin/activate")
+        logger.info("O ejecuta el script con: venv/bin/python compute_state.py")
 
 # Cargar configuración para obtener rutas
 temp_config = load_config()
 if temp_config is None:
-    print("❌ No se pudo cargar la configuración desde configs/config.yaml")
+    logger.error("No se pudo cargar la configuración desde configs/config.yaml")
     sys.exit(1)
 
 # Obtener ruta a ongoing-bps-state-short-term desde config.yaml
 if not temp_config.get("external_repos"):
-    print("❌ No se encontró la sección 'external_repos' en configs/config.yaml")
-    print("   Agrega la siguiente sección a tu config.yaml:")
-    print("   external_repos:")
-    print("     ongoing_bps_state_path: /ruta/a/ongoing-bps-state-short-term")
+    logger.error("No se encontró la sección 'external_repos' en configs/config.yaml")
+    logger.error("Agrega la siguiente sección a tu config.yaml:")
+    logger.error("  external_repos:")
+    logger.error("    ongoing_bps_state_path: /ruta/a/ongoing-bps-state-short-term")
     sys.exit(1)
 
 ongoing_bps_path = temp_config["external_repos"].get("ongoing_bps_state_path")
 
 if not ongoing_bps_path:
-    print("❌ No se encontró 'ongoing_bps_state_path' en configs/config.yaml")
-    print("   Configura la ruta en configs/config.yaml:")
-    print("   external_repos:")
-    print("     ongoing_bps_state_path: /ruta/a/ongoing-bps-state-short-term")
+    logger.error("No se encontró 'ongoing_bps_state_path' en configs/config.yaml")
+    logger.error("Configura la ruta en configs/config.yaml:")
+    logger.error("  external_repos:")
+    logger.error("    ongoing_bps_state_path: /ruta/a/ongoing-bps-state-short-term")
     sys.exit(1)
 
 if not os.path.exists(ongoing_bps_path):
-    print(f"❌ La ruta configurada no existe: {ongoing_bps_path}")
-    print("   Verifica que la ruta en configs/config.yaml sea correcta:")
-    print(f"   external_repos:")
-    print(f"     ongoing_bps_state_path: {ongoing_bps_path}")
+    logger.error(f"La ruta configurada no existe: {ongoing_bps_path}")
+    logger.error("Verifica que la ruta en configs/config.yaml sea correcta")
     sys.exit(1)
 
 if ongoing_bps_path not in sys.path:
@@ -82,8 +65,16 @@ if ongoing_bps_path not in sys.path:
 # Importar después de agregar paths
 from src.runner import run_process_state_and_simulation
 
-def get_log_name_from_path(log_path):
-    """Extrae el nombre del log desde la ruta"""
+def get_log_name_from_path(log_path: str) -> str:
+    """
+    Extrae el nombre del log desde la ruta.
+    
+    Args:
+        log_path: Ruta al archivo del log
+    
+    Returns:
+        Nombre del log sin extensión
+    """
     return os.path.splitext(os.path.basename(log_path))[0]
 
 def compute_cut_points(
@@ -91,24 +82,24 @@ def compute_cut_points(
     horizon_days: int,
     *,
     strategy: str = "fixed",
-    fixed_cut: str | None = None,
-    rng: np.random.Generator | None = None,
-) -> list[pd.Timestamp]:
+    fixed_cut: Optional[str] = None,
+    rng: Optional[np.random.Generator] = None,
+) -> List[pd.Timestamp]:
     """
     Return a list of cut-off timestamps according to *strategy*.
     
-    Strategies:
-    ----------
-    fixed
-        Exactly one timestamp, taken from *fixed_cut*.
-        If fixed_cut is None, uses the last event timestamp.
-    wip3
-        Three timestamps where the Work-in-Process equals 10 %, 50 %, and
-        90 % of the maximum observed WiP.
-    segment10
-        Ten timestamps: drop the first and last *horizon* and divide the
-        remaining interval into ten equal segments; pick one random moment
-        from each segment.
+    Args:
+        log_df: DataFrame con el log de eventos
+        horizon_days: Días de horizonte para calcular puntos seguros
+        strategy: Estrategia para calcular puntos de corte ("fixed", "wip3", "segment10")
+        fixed_cut: Timestamp fijo para estrategia "fixed"
+        rng: Generador de números aleatorios (opcional)
+    
+    Returns:
+        Lista de timestamps de puntos de corte
+    
+    Raises:
+        ValueError: Si el log es muy corto o faltan columnas necesarias
     """
     if strategy == "fixed":
         if fixed_cut is None:
@@ -173,7 +164,7 @@ def compute_cut_points(
     
     raise ValueError(f"unknown cut strategy: {strategy}")
 
-def compute_state(config=None):
+def compute_state(config: Optional[Dict[str, Any]] = None) -> Optional[List[str]]:
     """
     Calcula el estado parcial del proceso.
     
@@ -181,16 +172,17 @@ def compute_state(config=None):
         config: Diccionario de configuración (si es None, se carga desde config.yaml)
     
     Returns:
-        str: Ruta al archivo de estado generado, o None si falló
+        Lista de rutas a archivos de estado generados, o None si falló
     """
-    print("=" * 80)
-    print("🔧 CÁLCULO DE ESTADO PARCIAL DEL PROCESO")
-    print("=" * 80)
+    logger.info("=" * 80)
+    logger.info("CÁLCULO DE ESTADO PARCIAL DEL PROCESO")
+    logger.info("=" * 80)
     
     # Cargar configuración
     if config is None:
         config = load_config()
         if config is None:
+            logger.error("No se pudo cargar la configuración")
             return None
     
     # Obtener configuración
@@ -222,7 +214,7 @@ def compute_state(config=None):
     # Obtener ruta del log
     log_path = log_config.get("log_path")
     if not log_path:
-        print("❌ Error: No se especificó log_path en config.yaml")
+        logger.error("No se especificó log_path en config.yaml")
         return None
     
     # Si es una ruta relativa, hacerla relativa al directorio base (nuevo/)
@@ -251,13 +243,13 @@ def compute_state(config=None):
         "JSON Parameters": json_path
     }
     
-    print("\n📋 Verificando archivos necesarios...")
+    logger.info("Verificando archivos necesarios...")
     for file_type, path in files_to_check.items():
         if not os.path.exists(path):
-            print(f"❌ Archivo no encontrado ({file_type}): {path}")
+            logger.error(f"Archivo no encontrado ({file_type}): {path}")
             return None
         else:
-            print(f"✅ {file_type}: {path}")
+            logger.info(f"{file_type}: {path}")
     
     # Obtener parámetros de configuración
     column_mapping = ongoing_config.get("column_mapping")
@@ -284,7 +276,7 @@ def compute_state(config=None):
         column_mapping_json = column_mapping
     
     # Leer el log para calcular puntos de corte
-    print("\n📊 Leyendo log de eventos para calcular puntos de corte...")
+    logger.info("Leyendo log de eventos para calcular puntos de corte...")
     
     # Detectar formato del log
     log_ext = os.path.splitext(log_path)[1].lower()
@@ -297,7 +289,6 @@ def compute_state(config=None):
             import pm4py
             if log_path.endswith('.gz'):
                 # Descomprimir temporalmente
-                import tempfile
                 with tempfile.NamedTemporaryFile(delete=False, suffix='.xes') as tmp_file:
                     with gzip.open(log_path, 'rb') as f_in:
                         tmp_file.write(f_in.read())
@@ -327,13 +318,11 @@ def compute_state(config=None):
             # Para XES, no aplicar mapeo de CSV (ya está mapeado)
             csv_to_standard = {}
         except ImportError:
-            print("❌ Error: pm4py no está instalado. Instala con: pip install pm4py")
-            print("   O convierte el log XES a CSV primero")
+            logger.error("pm4py no está instalado. Instala con: pip install pm4py")
+            logger.error("O convierte el log XES a CSV primero")
             return None
         except Exception as e:
-            print(f"❌ Error leyendo archivo XES: {e}")
-            import traceback
-            traceback.print_exc()
+            logger.error(f"Error leyendo archivo XES: {e}", exc_info=True)
             return None
     else:
         # Leer archivo CSV
@@ -352,7 +341,7 @@ def compute_state(config=None):
     fixed_cut = ongoing_config.get("start_time")  # Para estrategia "fixed"
     horizon_days = ongoing_config.get("horizon_days", 7)
     
-    print(f"\n📅 Estrategia de puntos de corte: {cut_strategy}")
+    logger.info(f"Estrategia de puntos de corte: {cut_strategy}")
     
     # Calcular puntos de corte
     try:
@@ -363,13 +352,11 @@ def compute_state(config=None):
             fixed_cut=fixed_cut,
             rng=None
         )
-        print(f"✅ Calculados {len(cut_points)} puntos de corte")
+        logger.info(f"Calculados {len(cut_points)} puntos de corte")
         for i, cut in enumerate(cut_points, 1):
-            print(f"   {i}. {cut.isoformat()}")
+            logger.info(f"  {i}. {cut.isoformat()}")
     except Exception as e:
-        print(f"❌ Error calculando puntos de corte: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.error(f"Error calculando puntos de corte: {e}", exc_info=True)
         return None
     
     # Cambiar al directorio de salida
@@ -381,9 +368,9 @@ def compute_state(config=None):
     try:
         # Procesar cada punto de corte
         for i, cut_point in enumerate(cut_points, 1):
-            print(f"\n{'='*80}")
-            print(f"📅 Procesando punto de corte {i}/{len(cut_points)}: {cut_point.isoformat()}")
-            print(f"{'='*80}")
+            logger.info(f"{'='*80}")
+            logger.info(f"Procesando punto de corte {i}/{len(cut_points)}: {cut_point.isoformat()}")
+            logger.info(f"{'='*80}")
             
             # Convertir pd.Timestamp a string ISO para run_process_state_and_simulation
             start_time_str = cut_point.isoformat()
@@ -412,42 +399,40 @@ def compute_state(config=None):
                 shutil.copy2(output_json_path, state_file)
                 os.remove(output_json_path)  # Eliminar output.json temporal
                 
-                print(f"✅ Estado calculado y guardado en: {state_file}")
+                logger.info(f"Estado calculado y guardado en: {state_file}")
                 generated_files.append(state_file)
             else:
-                print(f"⚠️  No se encontró output.json en: {output_json_path}")
+                logger.warning(f"No se encontró output.json en: {output_json_path}")
                 if result is None:
-                    print(f"❌ Error: result es None y no se encontró output.json")
+                    logger.error("result es None y no se encontró output.json")
         
-        print(f"\n{'='*80}")
-        print(f"✅ Proceso completado: {len(generated_files)}/{len(cut_points)} estados generados")
-        print(f"{'='*80}")
-        print(f"\n📁 Estados parciales guardados en: {output_dir}")
+        logger.info(f"{'='*80}")
+        logger.info(f"Proceso completado: {len(generated_files)}/{len(cut_points)} estados generados")
+        logger.info(f"{'='*80}")
+        logger.info(f"Estados parciales guardados en: {output_dir}")
         for f in generated_files:
-            print(f"   • {os.path.basename(f)}")
+            logger.info(f"  • {os.path.basename(f)}")
         
         return generated_files if len(generated_files) > 0 else None
         
     except Exception as e:
-        print(f"❌ Error: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.error(f"Error: {e}", exc_info=True)
         return None
     finally:
         # Restaurar directorio original
         os.chdir(original_cwd)
 
-def main():
+def main() -> None:
     """Función principal para ejecutar desde línea de comandos"""
     result = compute_state()
     if result:
         if isinstance(result, list):
-            print(f"\n🎉 ¡{len(result)} estados parciales calculados exitosamente!")
+            logger.info(f"¡{len(result)} estados parciales calculados exitosamente!")
         else:
-            print("\n🎉 ¡Estado parcial calculado exitosamente!")
+            logger.info("¡Estado parcial calculado exitosamente!")
         sys.exit(0)
     else:
-        print("\n❌ El cálculo del estado falló")
+        logger.error("El cálculo del estado falló")
         sys.exit(1)
 
 if __name__ == "__main__":

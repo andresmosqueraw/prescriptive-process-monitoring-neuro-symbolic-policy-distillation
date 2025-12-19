@@ -22,6 +22,13 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 from collections import deque
+from typing import Dict, Any, Optional, List, Callable, Tuple
+
+from utils.config import load_config
+from utils.logging import setup_logger
+
+# Configurar logger
+logger = setup_logger(__name__)
 
 # ==========================================
 # 0. SETUP & MOCK IMPORTS
@@ -32,56 +39,40 @@ from collections import deque
 #   paper1/repos-asis-online-predictivo/.../libraries-used/Prosimos/
 # y dentro existe el paquete/namespace `prosimos/`.
 
-def load_config(config_path=None):
-    """Carga la configuración desde el archivo YAML"""
-    if config_path is None:
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        if os.path.basename(script_dir) == "src":
-            base_dir = os.path.dirname(script_dir)
-        else:
-            base_dir = script_dir
-        config_path = os.path.join(base_dir, "configs/config.yaml")
-    
-    if not os.path.exists(config_path):
-        return None
-    
-    try:
-        with open(config_path, 'r') as f:
-            return yaml.safe_load(f)
-    except Exception:
-        return None
+# load_config ahora se importa de utils.config
 
 def _maybe_add_local_prosimos_to_syspath() -> None:
+    """Agrega Prosimos al sys.path desde la configuración."""
     config = load_config()
     if config is None:
-        print("❌ No se pudo cargar la configuración desde configs/config.yaml")
-        print("   Asegúrate de que el archivo configs/config.yaml existe")
+        logger.error("No se pudo cargar la configuración desde configs/config.yaml")
+        logger.error("Asegúrate de que el archivo configs/config.yaml existe")
         return
     
     if not config.get("external_repos"):
-        print("❌ No se encontró la sección 'external_repos' en configs/config.yaml")
-        print("   Agrega la siguiente sección a tu config.yaml:")
-        print("   external_repos:")
-        print("     prosimos_path: /ruta/a/Prosimos")
+        logger.error("No se encontró la sección 'external_repos' en configs/config.yaml")
+        logger.error("Agrega la siguiente sección a tu config.yaml:")
+        logger.error("  external_repos:")
+        logger.error("    prosimos_path: /ruta/a/Prosimos")
         return
     
     prosimos_path = config["external_repos"].get("prosimos_path")
     
     if not prosimos_path:
-        print("❌ No se encontró 'prosimos_path' en configs/config.yaml")
-        print("   Configura la ruta en configs/config.yaml:")
-        print("   external_repos:")
-        print("     prosimos_path: /ruta/a/Prosimos")
+        logger.error("No se encontró 'prosimos_path' en configs/config.yaml")
+        logger.error("Configura la ruta en configs/config.yaml:")
+        logger.error("  external_repos:")
+        logger.error("    prosimos_path: /ruta/a/Prosimos")
         return
     
     if not os.path.exists(prosimos_path):
-        print(f"❌ La ruta configurada no existe: {prosimos_path}")
-        print("   Verifica que la ruta en configs/config.yaml sea correcta")
+        logger.error(f"La ruta configurada no existe: {prosimos_path}")
+        logger.error("Verifica que la ruta en configs/config.yaml sea correcta")
         return
     
     if not os.path.isdir(os.path.join(prosimos_path, "prosimos")):
-        print(f"❌ La ruta no contiene el directorio 'prosimos': {prosimos_path}")
-        print("   Verifica que la ruta apunte al directorio raíz de Prosimos")
+        logger.error(f"La ruta no contiene el directorio 'prosimos': {prosimos_path}")
+        logger.error("Verifica que la ruta apunte al directorio raíz de Prosimos")
         return
     
     if prosimos_path not in sys.path:
@@ -101,9 +92,8 @@ try:
     run_simulation = prosimos_sim_engine.run_simulation
     PROSIMOS_AVAILABLE = True
 except Exception as e:
-    print("⚠️  ADVERTENCIA: Librería 'prosimos' no detectada.")
-    print(f"   Motivo: {e!r}")
-    print("   Se usarán clases Mock para demostrar la arquitectura.")
+    logger.warning(f"Librería 'prosimos' no detectada. Motivo: {e!r}")
+    logger.warning("Se usarán clases Mock para demostrar la arquitectura.")
     PROSIMOS_AVAILABLE = False
     
     # Mock classes/functions to allow script execution/demonstration
@@ -122,7 +112,7 @@ except Exception as e:
     BPMN = _MockBPMN
 
     def run_simulation(*args, **kwargs):
-        print("   [Sim] Running simulation episode...")
+        logger.debug("[Sim] Running simulation episode...")
         return None
 
 # ==========================================
@@ -134,13 +124,27 @@ class SymbolicSafetyGuard:
     Capa de Seguridad Simbólica.
     Verifica si una acción viola reglas de negocio o restricciones de recursos (LTL).
     """
-    def __init__(self, rules_config):
-        self.rules = rules_config
-        self.resource_budget = 1000 # Ejemplo de restricción de recursos
+    def __init__(self, rules_config: Dict[str, Any], resource_budget: int = 1000):
+        """
+        Inicializa el guard de seguridad simbólica.
         
-    def is_safe(self, case_state, proposed_action):
+        Args:
+            rules_config: Configuración de reglas
+            resource_budget: Presupuesto inicial de recursos
+        """
+        self.rules = rules_config
+        self.resource_budget = resource_budget
+        
+    def is_safe(self, case_state: Dict[str, Any], proposed_action: str) -> bool:
         """
         Retorna True si la acción es segura y cumple el presupuesto.
+        
+        Args:
+            case_state: Estado actual del caso
+            proposed_action: Acción propuesta
+        
+        Returns:
+            True si la acción es segura, False en caso contrario
         """
         # Regla 1: Restricción de Presupuesto
         if self.resource_budget <= 0:
@@ -167,9 +171,22 @@ class CausalRewardEngine:
         self.intervention_cost = 20
         self.success_reward = 100
         
-    def calculate_reward(self, action, outcome_success, propensity_score=0.5):
+    def calculate_reward(
+        self,
+        action: str,
+        outcome_success: bool,
+        propensity_score: float = 0.5
+    ) -> float:
         """
         Calcula la recompensa ajustada causalmente.
+        
+        Args:
+            action: Acción tomada
+            outcome_success: Si el resultado fue exitoso
+            propensity_score: Score de propensión para IPW
+        
+        Returns:
+            Recompensa calculada
         """
         base_reward = 0
         
@@ -194,13 +211,39 @@ class RLAgent:
     Agente simple de RL (Q-Learning) para demostración.
     En producción, esto sería un wrapper para Stable-Baselines3 (PPO/DQN).
     """
-    def __init__(self, action_space=None, learning_rate=0.01, epsilon=0.1):
-        self.q_table = {} # State -> {Action -> Value}
-        self.epsilon = epsilon # Exploración
+    def __init__(
+        self,
+        action_space: Optional[List[str]] = None,
+        learning_rate: float = 0.01,
+        epsilon: float = 0.1
+    ):
+        """
+        Inicializa el agente RL.
+        
+        Args:
+            action_space: Espacio de acciones disponible
+            learning_rate: Tasa de aprendizaje
+            epsilon: Probabilidad de exploración (epsilon-greedy)
+        """
+        self.q_table: Dict[str, Dict[str, float]] = {}  # State -> {Action -> Value}
+        self.epsilon = epsilon
         self.learning_rate = learning_rate
         self.action_space = action_space
         
-    def get_action(self, state_str, possible_actions=None):
+    def get_action(self, state_str: str, possible_actions: Optional[List[str]] = None) -> str:
+        """
+        Selecciona una acción usando epsilon-greedy.
+        
+        Args:
+            state_str: Representación del estado como string
+            possible_actions: Lista de acciones posibles (si None, usa self.action_space)
+        
+        Returns:
+            Acción seleccionada
+        
+        Raises:
+            ValueError: Si no hay acciones disponibles
+        """
         possible_actions = list(possible_actions) if possible_actions is not None else self.action_space
         if not possible_actions:
             raise ValueError("No hay acciones disponibles para seleccionar")
@@ -219,8 +262,24 @@ class RLAgent:
         # Retornar acción con mayor Q-value
         return max(self.q_table[state_str], key=self.q_table[state_str].get)
 
-    def update(self, state, action, reward, next_state, gamma=0.9):
-        # Q-Learning Update Rule (Simplificada)
+    def update(
+        self,
+        state: str,
+        action: str,
+        reward: float,
+        next_state: str,
+        gamma: float = 0.9
+    ) -> None:
+        """
+        Actualiza la Q-table usando Q-Learning.
+        
+        Args:
+            state: Estado actual
+            action: Acción tomada
+            reward: Recompensa recibida
+            next_state: Estado siguiente
+            gamma: Factor de descuento
+        """
         alpha = self.learning_rate
         
         # Inicialización robusta (action_space puede ser dinámica)
@@ -241,23 +300,83 @@ class RLAgent:
 # 2. THE MONKEY PATCH (INYECCIÓN DE CÓDIGO)
 # ==========================================
 
-# Buffer global para guardar experiencias para la Fase 3
-EXPERIENCE_BUFFER = [] # Lista de dicts: {state, action, reward, next_state}
+class ExperienceBuffer:
+    """
+    Buffer para almacenar experiencias del agente RL.
+    Encapsula el estado que antes era global.
+    """
+    def __init__(self):
+        """Inicializa el buffer vacío."""
+        self.buffer: List[Dict[str, Any]] = []
+    
+    def append(self, experience: Dict[str, Any]) -> None:
+        """
+        Agrega una experiencia al buffer.
+        
+        Args:
+            experience: Diccionario con la experiencia (state, action, reward, etc.)
+        """
+        self.buffer.append(experience)
+    
+    def __len__(self) -> int:
+        """Retorna el número de experiencias en el buffer."""
+        return len(self.buffer)
+    
+    def __iter__(self):
+        """Permite iterar sobre las experiencias."""
+        return iter(self.buffer)
+    
+    def clear(self) -> None:
+        """Limpia el buffer."""
+        self.buffer.clear()
 
 class NeuroSymbolicFlowSelector:
     """
     Esta clase REEMPLAZA al OutgoingFlowSelector original de Prosimos.
     Intercepta las decisiones de XOR Gateway.
     """
-    def __init__(self, original_choose_fn, agent, safety_guard, reward_engine):
-        self.original_choose_fn = original_choose_fn # Mantener lógica original como fallback
+    def __init__(
+        self,
+        original_choose_fn: Callable,
+        agent: RLAgent,
+        safety_guard: SymbolicSafetyGuard,
+        reward_engine: CausalRewardEngine,
+        experience_buffer: ExperienceBuffer
+    ):
+        """
+        Inicializa el selector neuro-simbólico.
+        
+        Args:
+            original_choose_fn: Función original de Prosimos como fallback
+            agent: Agente RL
+            safety_guard: Guard de seguridad simbólica
+            reward_engine: Motor de recompensas causales
+            experience_buffer: Buffer para almacenar experiencias
+        """
+        self.original_choose_fn = original_choose_fn
         self.agent = agent
         self.safety = safety_guard
         self.reward_engine = reward_engine
+        self.experience_buffer = experience_buffer
         
-    def choose_outgoing_flow(self, e_info, element_probability, all_attributes, gateway_conditions):
+    def choose_outgoing_flow(
+        self,
+        e_info: Any,
+        element_probability: Any,
+        all_attributes: Any,
+        gateway_conditions: Any
+    ) -> List[Tuple[Any, Optional[Any]]]:
         """
         Método inyectado que se ejecuta en cada decisión del simulador.
+        
+        Args:
+            e_info: Información del elemento
+            element_probability: Probabilidades del elemento
+            all_attributes: Todos los atributos
+            gateway_conditions: Condiciones del gateway
+        
+        Returns:
+            Lista de tuplas (flow, condition) seleccionadas
         """
         # Si no es XOR, usar la lógica original de Prosimos
         try:
@@ -301,13 +420,13 @@ class NeuroSymbolicFlowSelector:
         experience = {
             "case_id": None,
             "timestamp": datetime.now().isoformat(),
-            "state_feature_vector": current_state, # Feature vector real iría aquí
+            "state_feature_vector": current_state,  # Feature vector real iría aquí
             "action_taken": final_action,
             "reward_causal": reward,
             "was_safe": is_safe,
-            "next_state": "terminal" # Simplificado
+            "next_state": "terminal"  # Simplificado
         }
-        EXPERIENCE_BUFFER.append(experience)
+        self.experience_buffer.append(experience)
         
         # 7. Actualizar Agente (Online Learning)
         self.agent.update(current_state, final_action, reward, "terminal")
@@ -318,7 +437,11 @@ class NeuroSymbolicFlowSelector:
 # 3. MAIN TRAINING LOOP
 # ==========================================
 
-def run_causal_gym_training(bpmn_path, json_path, config=None):
+def run_causal_gym_training(
+    bpmn_path: str,
+    json_path: str,
+    config: Optional[Dict[str, Any]] = None
+) -> bool:
     """
     Función principal de entrenamiento RL.
     
@@ -326,13 +449,16 @@ def run_causal_gym_training(bpmn_path, json_path, config=None):
         bpmn_path: Ruta al archivo BPMN
         json_path: Ruta al archivo JSON de parámetros
         config: Diccionario de configuración (si None, se carga desde config.yaml)
+    
+    Returns:
+        True si el entrenamiento fue exitoso, False en caso contrario
     """
     # Cargar configuración si no se proporciona
     if config is None:
         config = load_config()
         if config is None:
-            print("❌ No se pudo cargar la configuración desde configs/config.yaml")
-            return
+            logger.error("No se pudo cargar la configuración desde configs/config.yaml")
+            return False
     
     rl_config = config.get("rl_config", {})
     script_config = config.get("script_config", {})
@@ -344,43 +470,44 @@ def run_causal_gym_training(bpmn_path, json_path, config=None):
     epsilon = rl_config.get("epsilon", 0.1)
     resource_budget = rl_config.get("resource_budget", 100)
     
-    print("="*80)
-    print("🏋️‍♂️  CAUSAL-GYM: INICIANDO ENTRENAMIENTO NEURO-SIMBÓLICO")
-    print("="*80)
-    print(f"📋 Configuración:")
-    print(f"   • Episodios: {episodes}")
-    print(f"   • Casos por episodio: {total_cases}")
-    print(f"   • Learning rate: {learning_rate}")
-    print(f"   • Epsilon (exploración): {epsilon}")
-    print(f"   • Presupuesto de recursos: {resource_budget}")
-    print()
+    logger.info("="*80)
+    logger.info("CAUSAL-GYM: INICIANDO ENTRENAMIENTO NEURO-SIMBÓLICO")
+    logger.info("="*80)
+    logger.info(f"Configuración:")
+    logger.info(f"  • Episodios: {episodes}")
+    logger.info(f"  • Casos por episodio: {total_cases}")
+    logger.info(f"  • Learning rate: {learning_rate}")
+    logger.info(f"  • Epsilon (exploración): {epsilon}")
+    logger.info(f"  • Presupuesto de recursos: {resource_budget}")
     
     # 1. Configuración de Componentes
-    agent = RLAgent(action_space=None)
-    agent.epsilon = epsilon
-    agent.learning_rate = learning_rate
+    agent = RLAgent(action_space=None, learning_rate=learning_rate, epsilon=epsilon)
     
-    safety = SymbolicSafetyGuard(rules_config={})
-    safety.resource_budget = resource_budget
+    safety = SymbolicSafetyGuard(rules_config={}, resource_budget=resource_budget)
     
     reward_engine = CausalRewardEngine()
     
+    # Crear buffer de experiencias (eliminando estado global)
+    experience_buffer = ExperienceBuffer()
+    
     # 2. Preparar Monkey Patching
-    print("\n💉 Inyectando NeuroSymbolicFlowSelector en el runtime de Prosimos...")
+    logger.info("Inyectando NeuroSymbolicFlowSelector en el runtime de Prosimos...")
     
     original_choose = OutgoingFlowSelector.choose_outgoing_flow
-    neuro_selector = NeuroSymbolicFlowSelector(original_choose, agent, safety, reward_engine)
+    neuro_selector = NeuroSymbolicFlowSelector(
+        original_choose, agent, safety, reward_engine, experience_buffer
+    )
 
     def patched_choose_outgoing_flow(e_info, element_probability, all_attributes, gateway_conditions):
         return neuro_selector.choose_outgoing_flow(e_info, element_probability, all_attributes, gateway_conditions)
 
     # Aplicar el parche (mantener staticmethod)
     OutgoingFlowSelector.choose_outgoing_flow = staticmethod(patched_choose_outgoing_flow)
-    print("✅ Parche aplicado exitosamente.")
+    logger.info("Parche aplicado exitosamente.")
 
     # 3. Bucle de Entrenamiento (Episodios)
     for episode in range(1, episodes + 1):
-        print(f"\n🎬 Episodio {episode}/{episodes}")
+        logger.info(f"Episodio {episode}/{episodes}")
         
         # Reiniciar presupuesto por episodio
         safety.resource_budget = resource_budget
@@ -389,7 +516,7 @@ def run_causal_gym_training(bpmn_path, json_path, config=None):
         # Prosimos usará nuestro selector parcheado internamente en los gateways
         run_simulation(bpmn_path, json_path, total_cases=total_cases)
         
-        print(f"   Buffer size: {len(EXPERIENCE_BUFFER)} experiencias recolectadas")
+        logger.info(f"  Buffer size: {len(experience_buffer)} experiencias recolectadas")
 
     # 4. Exportar Experience Buffer para Fase 3 (Distillation)
     # Determinar directorio de salida
@@ -412,22 +539,25 @@ def run_causal_gym_training(bpmn_path, json_path, config=None):
     os.makedirs(rl_output_dir, exist_ok=True)
     output_file = os.path.join(rl_output_dir, "experience_buffer.csv")
     
-    if EXPERIENCE_BUFFER:
-        keys = EXPERIENCE_BUFFER[0].keys()
-        with open(output_file, 'w', newline='') as f:
+    if experience_buffer.buffer:
+        keys = experience_buffer.buffer[0].keys()
+        with open(output_file, 'w', newline='', encoding='utf-8') as f:
             dict_writer = csv.DictWriter(f, keys)
             dict_writer.writeheader()
-            dict_writer.writerows(EXPERIENCE_BUFFER)
-        print(f"\n💾 Experience Buffer guardado en: {output_file}")
-        print("   Listo para Phase 3: Policy Distillation")
+            dict_writer.writerows(experience_buffer.buffer)
+        logger.info(f"Experience Buffer guardado en: {output_file}")
+        logger.info("Listo para Phase 3: Policy Distillation")
+        return True
     else:
-        print("\n⚠️  No se recolectaron experiencias.")
+        logger.warning("No se recolectaron experiencias.")
+        return False
 
-if __name__ == "__main__":
+def main() -> None:
+    """Función principal para ejecutar desde línea de comandos"""
     # Cargar configuración
     config = load_config()
     if config is None:
-        print("❌ No se pudo cargar la configuración desde configs/config.yaml")
+        logger.error("No se pudo cargar la configuración desde configs/config.yaml")
         sys.exit(1)
     
     log_config = config.get("log_config", {})
@@ -440,10 +570,10 @@ if __name__ == "__main__":
     else:
         base_dir = script_dir
     
-    # Obtener nombre del log desde log_path
+    # Obtener ruta del log desde log_path
     log_path = log_config.get("log_path")
     if not log_path:
-        print("❌ Error: No se especificó log_path en config.yaml")
+        logger.error("No se especificó log_path en config.yaml")
         sys.exit(1)
     
     # Si es relativa, hacerla absoluta
@@ -472,17 +602,23 @@ if __name__ == "__main__":
     
     # Verificar que existan
     if not os.path.exists(bpmn_file):
-        print(f"❌ Error: No se encontró el archivo BPMN: {bpmn_file}")
-        print("   Ejecuta primero extract_bpmn_json.py para generar los archivos")
+        logger.error(f"No se encontró el archivo BPMN: {bpmn_file}")
+        logger.error("Ejecuta primero extract_bpmn_json.py para generar los archivos")
         sys.exit(1)
     
     if not os.path.exists(json_file):
-        print(f"❌ Error: No se encontró el archivo JSON: {json_file}")
-        print("   Ejecuta primero extract_bpmn_json.py para generar los archivos")
+        logger.error(f"No se encontró el archivo JSON: {json_file}")
+        logger.error("Ejecuta primero extract_bpmn_json.py para generar los archivos")
         sys.exit(1)
     
     # Cambiar al directorio base
     os.chdir(base_dir)
     
     # Ejecutar entrenamiento
-    run_causal_gym_training(bpmn_file, json_file, config)
+    success = run_causal_gym_training(bpmn_file, json_file, config)
+    if not success:
+        logger.error("El entrenamiento falló")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()

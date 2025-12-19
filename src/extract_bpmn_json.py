@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Script para extraer BPMN y JSON desde un log usando Simod.
-Recibe el log original y genera BPMN y JSON en la carpeta "nuevo".
+Recibe el log original y genera BPMN y JSON en la carpeta de salida configurada.
 """
 
 import os
@@ -12,36 +12,21 @@ import gzip
 import shutil
 import yaml
 from pathlib import Path
+from typing import Dict, Any, Optional, Tuple
 
-def load_config(config_path=None):
-    """Carga la configuración desde el archivo YAML"""
-    if config_path is None:
-        # Buscar config.yaml en la carpeta base (nuevo/)
-        # Si estamos en src/, subir un nivel para llegar a nuevo/
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        if os.path.basename(script_dir) == "src":
-            base_dir = os.path.dirname(script_dir)
-        else:
-            base_dir = script_dir
-        config_path = os.path.join(base_dir, "configs/config.yaml")
-    
-    if not os.path.exists(config_path):
-        print(f"⚠️  No se encontró archivo de configuración: {config_path}")
-        print("   Usando valores por defecto...")
-        return get_default_config()
-    
-    try:
-        with open(config_path, 'r') as f:
-            config = yaml.safe_load(f)
-        print(f"✅ Configuración cargada desde: {config_path}")
-        return config
-    except Exception as e:
-        print(f"⚠️  Error leyendo configuración: {e}")
-        print("   Usando valores por defecto...")
-        return get_default_config()
+from utils.config import load_config
+from utils.logging import setup_logger
 
-def get_default_config():
-    """Retorna configuración por defecto si no se encuentra el archivo"""
+# Configurar logger
+logger = setup_logger(__name__)
+
+def get_default_config() -> Dict[str, Any]:
+    """
+    Retorna configuración por defecto si no se encuentra el archivo.
+    
+    Returns:
+        Diccionario con configuración por defecto
+    """
     return {
         "log_config": {
             "column_mapping": {
@@ -105,8 +90,26 @@ def compress_log_to_gz(csv_path, gz_path):
             shutil.copyfileobj(f_in, f_out)
     print(f"✅ Log comprimido: {gz_path}")
 
-def create_config_yaml(log_name, output_dir, simod_config, log_config, log_format="csv"):
-    """Crea el archivo de configuración YAML para Simod"""
+def create_config_yaml(
+    log_name: str,
+    output_dir: str,
+    simod_config: Dict[str, Any],
+    log_config: Dict[str, Any],
+    log_format: str = "csv"
+) -> str:
+    """
+    Crea el archivo de configuración YAML para Simod.
+    
+    Args:
+        log_name: Nombre del log (sin extensión)
+        output_dir: Directorio donde guardar el archivo de configuración
+        simod_config: Configuración de Simod desde config.yaml
+        log_config: Configuración del log desde config.yaml
+        log_format: Formato del log ("csv" o "xes")
+    
+    Returns:
+        Ruta al archivo de configuración creado
+    """
     config_path = os.path.join(output_dir, "configuration.yaml")
     
     # Determinar nombre del archivo según formato
@@ -135,14 +138,30 @@ def create_config_yaml(log_name, output_dir, simod_config, log_config, log_forma
         "extraneous_activity_delays": simod_config.get("extraneous_activity_delays", {})
     }
     
-    with open(config_path, 'w') as f:
+    with open(config_path, 'w', encoding='utf-8') as f:
         yaml.dump(simod_yaml_config, f, default_flow_style=False, sort_keys=False)
     
-    print(f"✅ Archivo de configuración creado: {config_path}")
+    logger.info(f"Archivo de configuración creado: {config_path}")
     return config_path
 
-def run_simod_docker(input_path, output_path, config_file_name, docker_config):
-    """Ejecuta Simod usando Docker"""
+def run_simod_docker(
+    input_path: str,
+    output_path: str,
+    config_file_name: str,
+    docker_config: Dict[str, Any]
+) -> bool:
+    """
+    Ejecuta Simod usando Docker.
+    
+    Args:
+        input_path: Directorio de entrada montado en Docker
+        output_path: Directorio de salida montado en Docker
+        config_file_name: Nombre del archivo de configuración dentro del contenedor
+        docker_config: Configuración de Docker desde config.yaml
+    
+    Returns:
+        True si Simod se ejecutó exitosamente, False en caso contrario
+    """
     config_inside_container = f"/usr/src/Simod/resources/{config_file_name}"
     
     # Obtener user_id y group_id de la configuración o usar valores por defecto
@@ -160,33 +179,44 @@ def run_simod_docker(input_path, output_path, config_file_name, docker_config):
         "--configuration", config_inside_container
     ]
     
-    print("\n🚀 Ejecutando Simod...")
-    print("Comando Docker:")
-    print(" ".join(docker_command))
-    print()
+    logger.info("Ejecutando Simod con Docker")
+    logger.debug(f"Comando Docker: {' '.join(docker_command)}")
     
     result = subprocess.run(docker_command, capture_output=True, text=True)
     
     if result.returncode == 0:
-        print("✅ Simod ejecutado exitosamente")
+        logger.info("Simod ejecutado exitosamente")
         if result.stdout:
-            print("Salida de Simod:")
-            print(result.stdout)
+            logger.debug(f"Salida de Simod: {result.stdout}")
         return True
     else:
-        print("❌ Simod falló")
-        print("STDOUT:\n", result.stdout)
-        print("STDERR:\n", result.stderr)
+        logger.error("Simod falló")
+        logger.error(f"STDOUT: {result.stdout}")
+        logger.error(f"STDERR: {result.stderr}")
         return False
 
-def find_and_copy_results(simod_output_dir, target_dir, log_name):
-    """Busca los archivos BPMN y JSON generados por Simod y los copia a la carpeta objetivo"""
-    print(f"\n🔍 Buscando resultados en: {simod_output_dir}")
+def find_and_copy_results(
+    simod_output_dir: str,
+    target_dir: str,
+    log_name: str
+) -> bool:
+    """
+    Busca los archivos BPMN y JSON generados por Simod y los copia a la carpeta objetivo.
+    
+    Args:
+        simod_output_dir: Directorio donde Simod generó los resultados
+        target_dir: Directorio destino donde copiar los archivos
+        log_name: Nombre del log (sin extensión)
+    
+    Returns:
+        True si se encontraron y copiaron los archivos, False en caso contrario
+    """
+    logger.info(f"Buscando resultados en: {simod_output_dir}")
     
     # Simod genera resultados en subdirectorios con timestamps
     # Buscamos el directorio más reciente
     if not os.path.exists(simod_output_dir):
-        print(f"❌ No se encontró el directorio de salida: {simod_output_dir}")
+        logger.error(f"No se encontró el directorio de salida: {simod_output_dir}")
         return False
     
     # Buscar subdirectorios
@@ -194,7 +224,7 @@ def find_and_copy_results(simod_output_dir, target_dir, log_name):
                if os.path.isdir(os.path.join(simod_output_dir, d))]
     
     if not subdirs:
-        print(f"❌ No se encontraron subdirectorios en: {simod_output_dir}")
+        logger.error(f"No se encontraron subdirectorios en: {simod_output_dir}")
         return False
     
     # Obtener el más reciente
@@ -202,54 +232,63 @@ def find_and_copy_results(simod_output_dir, target_dir, log_name):
     best_result_dir = os.path.join(simod_output_dir, latest_subdir, "best_result")
     
     if not os.path.exists(best_result_dir):
-        print(f"❌ No se encontró best_result en: {latest_subdir}")
+        logger.error(f"No se encontró best_result en: {latest_subdir}")
         return False
     
-    print(f"✅ Directorio encontrado: {latest_subdir}/best_result")
+    logger.info(f"Directorio encontrado: {latest_subdir}/best_result")
     
     # Buscar archivos BPMN y JSON
     bpmn_file = os.path.join(best_result_dir, f"{log_name}.bpmn")
     json_file = os.path.join(best_result_dir, f"{log_name}.json")
     
-    files_found = []
+    files_found: list[Tuple[str, str]] = []
     if os.path.exists(bpmn_file):
         files_found.append(("BPMN", bpmn_file))
     else:
-        print(f"⚠️  No se encontró: {bpmn_file}")
+        logger.warning(f"No se encontró: {bpmn_file}")
     
     if os.path.exists(json_file):
         files_found.append(("JSON", json_file))
     else:
-        print(f"⚠️  No se encontró: {json_file}")
+        logger.warning(f"No se encontró: {json_file}")
     
     if not files_found:
-        print("❌ No se encontraron archivos BPMN ni JSON")
+        logger.error("No se encontraron archivos BPMN ni JSON")
         return False
     
     # Copiar archivos a la carpeta objetivo
-    print(f"\n📋 Copiando archivos a: {target_dir}")
+    logger.info(f"Copiando archivos a: {target_dir}")
     for file_type, source_path in files_found:
         target_path = os.path.join(target_dir, os.path.basename(source_path))
         shutil.copy2(source_path, target_path)
-        print(f"✅ {file_type} copiado: {os.path.basename(target_path)}")
+        logger.info(f"{file_type} copiado: {os.path.basename(target_path)}")
     
     return True
 
-def extract_bpmn_json(log_path, config=None):
+def extract_bpmn_json(
+    log_path: str,
+    config: Optional[Dict[str, Any]] = None
+) -> bool:
     """
     Función principal: extrae BPMN y JSON desde un log usando Simod.
     
     Args:
-        log_path: Ruta al archivo CSV, XES o XES.GZ del log (ej: PurchasingExample.csv, log.xes, log.xes.gz)
+        log_path: Ruta al archivo CSV, XES o XES.GZ del log
         config: Diccionario de configuración (si None, se carga desde config.yaml)
+    
+    Returns:
+        True si la extracción fue exitosa, False en caso contrario
     """
-    print("=" * 80)
-    print("🔧 EXTRACCIÓN DE BPMN Y JSON CON SIMOD")
-    print("=" * 80)
+    logger.info("=" * 80)
+    logger.info("EXTRACCIÓN DE BPMN Y JSON CON SIMOD")
+    logger.info("=" * 80)
     
     # Cargar configuración si no se proporciona
     if config is None:
         config = load_config()
+        if config is None:
+            logger.error("No se pudo cargar la configuración")
+            return False
     
     log_config = config.get("log_config", {})
     simod_config = config.get("simod_config", {})
@@ -257,7 +296,7 @@ def extract_bpmn_json(log_path, config=None):
     
     # Validar que el archivo existe
     if not os.path.exists(log_path):
-        print(f"❌ Error: No se encontró el archivo: {log_path}")
+        logger.error(f"No se encontró el archivo: {log_path}")
         return False
     
     # Obtener información del log
@@ -296,10 +335,10 @@ def extract_bpmn_json(log_path, config=None):
     # Prefijo para directorios temporales
     temp_prefix = script_config.get("temp_dir_prefix", ".simod_temp")
     
-    print(f"\n📄 Log: {log_path}")
-    print(f"📁 Directorio del log: {log_dir}")
-    print(f"📁 Directorio de salida: {output_dir}")
-    print(f"📝 Nombre: {log_name}")
+    logger.info(f"Log: {log_path}")
+    logger.info(f"Directorio del log: {log_dir}")
+    logger.info(f"Directorio de salida: {output_dir}")
+    logger.info(f"Nombre: {log_name}")
     
     # Crear directorio temporal para Simod
     temp_input_dir = os.path.join(log_dir, f"{temp_prefix}_input")
@@ -315,11 +354,11 @@ def extract_bpmn_json(log_path, config=None):
             if log_path.endswith('.gz'):
                 # Descomprimir XES.GZ a XES
                 xes_path = os.path.join(temp_input_dir, f"{log_name}.xes")
-                print(f"📦 Descomprimiendo {log_path} a {xes_path}...")
+                logger.info(f"Descomprimiendo {log_path} a {xes_path}")
                 with gzip.open(log_path, 'rb') as f_in:
                     with open(xes_path, 'wb') as f_out:
                         shutil.copyfileobj(f_in, f_out)
-                print(f"✅ Log descomprimido: {xes_path}")
+                logger.info(f"Log descomprimido: {xes_path}")
                 log_path_for_simod = xes_path
                 simod_log_name = f"{log_name}.xes"
             else:
@@ -349,37 +388,41 @@ def extract_bpmn_json(log_path, config=None):
         if not find_and_copy_results(temp_output_dir, output_dir, log_name):
             return False
         
-        print("\n" + "=" * 80)
-        print("✅ EXTRACCIÓN COMPLETADA")
-        print("=" * 80)
-        print(f"\n📁 Archivos generados en: {output_dir}")
-        print(f"   • {log_name}.bpmn")
-        print(f"   • {log_name}.json")
+        logger.info("=" * 80)
+        logger.info("EXTRACCIÓN COMPLETADA")
+        logger.info("=" * 80)
+        logger.info(f"Archivos generados en: {output_dir}")
+        logger.info(f"  • {log_name}.bpmn")
+        logger.info(f"  • {log_name}.json")
         
         return True
         
     finally:
         # Limpiar directorios temporales
-        print(f"\n🧹 Limpiando directorios temporales...")
+        logger.info("Limpiando directorios temporales")
         if os.path.exists(temp_input_dir):
             shutil.rmtree(temp_input_dir)
         if os.path.exists(temp_output_dir):
             shutil.rmtree(temp_output_dir)
-        print("✅ Limpieza completada")
+        logger.info("Limpieza completada")
 
-def main():
+def main() -> None:
     """Función principal para ejecutar desde línea de comandos"""
     # Cargar configuración
     config = load_config()
+    if config is None:
+        logger.error("No se pudo cargar la configuración")
+        sys.exit(1)
+    
     log_config = config.get("log_config", {})
     
     # Obtener ruta del log: primero de argumentos, luego de config.yaml
     if len(sys.argv) >= 2:
         log_path = sys.argv[1]
-        print(f"📄 Log especificado como argumento: {log_path}")
+        logger.info(f"Log especificado como argumento: {log_path}")
     elif log_config.get("log_path"):
         log_path = log_config.get("log_path")
-        # Si es una ruta relativa, hacerla relativa al directorio base (nuevo/)
+        # Si es una ruta relativa, hacerla relativa al directorio base
         if not os.path.isabs(log_path):
             script_dir = os.path.dirname(os.path.abspath(__file__))
             if os.path.basename(script_dir) == "src":
@@ -387,21 +430,19 @@ def main():
             else:
                 base_dir = script_dir
             log_path = os.path.join(base_dir, log_path)
-        print(f"📄 Log leído desde config.yaml: {log_path}")
+        logger.info(f"Log leído desde config.yaml: {log_path}")
     else:
-        print("❌ Error: No se especificó la ruta del log")
-        print("\nOpciones:")
-        print("  1. Como argumento: python extract_bpmn_json.py <ruta_al_log.csv>")
-        print("  2. En config.yaml: especificar 'log_config.log_path'")
-        print("\nEjemplo:")
-        print("  python extract_bpmn_json.py ../../data/0.logs/PurchasingExample/PurchasingExample.csv")
+        logger.error("No se especificó la ruta del log")
+        logger.error("Opciones:")
+        logger.error("  1. Como argumento: python extract_bpmn_json.py <ruta_al_log.csv>")
+        logger.error("  2. En config.yaml: especificar 'log_config.log_path'")
         sys.exit(1)
     
     if extract_bpmn_json(log_path, config):
-        print("\n🎉 ¡Proceso completado exitosamente!")
+        logger.info("¡Proceso completado exitosamente!")
         sys.exit(0)
     else:
-        print("\n❌ El proceso falló")
+        logger.error("El proceso falló")
         sys.exit(1)
 
 if __name__ == "__main__":
