@@ -23,7 +23,7 @@ def load_config(config_path=None):
             base_dir = os.path.dirname(script_dir)
         else:
             base_dir = script_dir
-        config_path = os.path.join(base_dir, "config.yaml")
+        config_path = os.path.join(base_dir, "configs/config.yaml")
     
     if not os.path.exists(config_path):
         print(f"⚠️  No se encontró archivo de configuración: {config_path}")
