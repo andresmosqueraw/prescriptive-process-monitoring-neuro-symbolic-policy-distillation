@@ -1,0 +1,147 @@
+# Configuración para extract_bpmn_json.py
+
+# Configuración del log
+log_config:
+  # Ruta al archivo CSV del log original/base
+  # Si es null, se debe proporcionar como argumento de línea de comandos
+  # Si se especifica aquí, se puede ejecutar sin argumentos
+  log_path: data/PurchasingExample.csv  # Ejemplo: "../../data/0.logs/PurchasingExample/PurchasingExample.csv"
+  
+  # Mapeo de columnas del log (ajustar según el formato del log)
+  column_mapping:
+    case: "caseid"
+    activity: "task"
+    resource: "user"
+    start_time: "start_timestamp"
+    end_time: "end_timestamp"
+  
+  # Si el log tiene nombres de columnas diferentes, ajustar aquí
+  # Ejemplo para logs con otros nombres:
+  # case: "Case ID"
+  # activity: "Activity"
+  # resource: "Resource"
+  # start_time: "StartTime"
+  # end_time: "EndTime"
+
+# Configuración de Simod
+simod_config:
+  version: 5
+  
+  # Configuración común
+  common:
+    discover_data_attributes: true
+  
+  # Preprocesamiento
+  preprocessing:
+    enable_time_concurrency_threshold: 0.0
+  
+  # Control-flow (descubrimiento de estructura del proceso)
+  control_flow:
+    optimization_metric: "two_gram_distance"
+    num_iterations: 10
+    num_evaluations_per_iteration: 3
+    gateway_probabilities: "discovery"
+    mining_algorithm: "sm2"  # Split Miner v2
+    epsilon: [0.05, 0.5]  # Rango para filtrado de aristas
+    eta: [0.2, 0.7]  # Rango para umbral de filtrado
+    replace_or_joins: [true, false]
+    prioritize_parallelism: [true, false]
+  
+  # Modelo de recursos
+  resource_model:
+    optimization_metric: "circadian_emd"
+    num_iterations: 5
+    num_evaluations_per_iteration: 3
+    discover_prioritization_rules: false
+    discover_batching_rules: false
+    resource_profiles:
+      discovery_type: "differentiated"
+      granularity: 60
+      confidence: [0.6, 0.7]
+      support: [0.05, 0.5]
+      participation: 0.4
+  
+  # Retrasos extraneos
+  extraneous_activity_delays:
+    discovery_method: "eclipse-aware"
+    num_iterations: 1
+
+# Configuración de ongoing-bps-state-short-term
+# Los archivos generados se guardan en data/generado-state/ (o script_config.state_output_dir)
+ongoing_config:
+  # Estrategia para calcular puntos de corte (cut-off points)
+  # Opciones:
+  #   - "fixed": 1 punto de corte fijo (usa start_time o último evento si es null)
+  #   - "wip3": 3 puntos de corte basados en percentiles de Work-in-Process (10%, 50%, 90%)
+  #   - "segment10": 10 puntos de corte dividiendo el intervalo temporal en segmentos iguales
+  cut_strategy: "wip3"  # "fixed" | "wip3" | "segment10"
+  
+  # Fecha/hora de corte (cut-off) en formato ISO
+  # Solo se usa si cut_strategy es "fixed"
+  # Si es null y cut_strategy="fixed", usa el último evento del log como cut-off
+  start_time: null  # Ejemplo: "2024-01-15T00:00:00Z"
+  
+  # Mapeo de columnas (se usa el mismo de log_config si no se especifica)
+  # Si es null, se usa el mapeo de log_config
+  column_mapping: null
+  
+  # Si ejecutar simulación de corto plazo después de calcular el estado
+  simulate: true
+  
+  # Horizonte de simulación (fecha/hora en formato ISO)
+  # Si es null y simulate=true, se calcula automáticamente usando horizon_days
+  simulation_horizon: null  # Ejemplo: "2024-01-22T00:00:00Z"
+  
+  # Días desde ahora para calcular el horizonte automáticamente
+  # Solo se usa si simulation_horizon es null y simulate=true
+  horizon_days: 7
+  
+  # Número de casos a simular (solo si simulate=true)
+  total_cases: 20
+
+# Configuración del script
+script_config:
+  # Directorio donde se guardarán los archivos generados por Simod
+  # Si es null, se usa data/generado-simod dentro de la carpeta nuevo/
+  output_dir: null
+  
+  # Directorio donde se guardará el estado parcial (compute_state.py)
+  # Si es null, se usa data/generado-state dentro de la carpeta nuevo/
+  state_output_dir: null
+  
+  # Directorio donde se guardarán los resultados de simulación (run_simulation.py)
+  # Si es null, se usa data/generado-short-term-simulation dentro de la carpeta nuevo/
+  simulation_output_dir: null
+  
+  # Prefijo para directorios temporales (se crean en la carpeta del log)
+  temp_dir_prefix: ".simod_temp"
+  
+  # Docker
+  docker:
+    image: "nokal/simod"
+    user_id: null  # null = usar os.getuid()
+    group_id: null  # null = usar os.getgid()
+
+# Configuración de What-If con reglas declarativas
+# REQUIERE que compute_state.py haya sido ejecutado previamente
+whatif_config:
+  # Ruta al archivo rules.ini con reglas declarativas
+  # Si es null, busca en ubicaciones comunes:
+  #   - data/rules.ini
+  #   - data/{log_name}/rules.ini
+  #   - DeclarativeProcessSimulation/data/0.logs/{log_name}/rules.ini
+  #   - DeclarativeProcessSimulation/GenerativeLSTM/rules.ini
+  rules_path: data/rules.ini  # Ruta relativa desde la carpeta nuevo/
+  
+  # Reglas a aplicar (índices de las reglas activas en rules.ini, 1-indexed)
+  # Si es null, el script preguntará interactivamente qué regla(s) aplicar
+  # Ejemplos:
+  #   selected_rules: [1]        # Aplicar solo la primera regla activa
+  #   selected_rules: [1, 2, 3]  # Aplicar las primeras 3 reglas activas
+  #   selected_rules: null        # Modo interactivo (pregunta al usuario)
+  selected_rules: null  # null | [1] | [1, 2, 3] | ...
+  
+  # Si ejecutar análisis what-if después de calcular el estado
+  # Requiere que compute_state.py haya generado estados parciales
+  enabled: true # true | false
+

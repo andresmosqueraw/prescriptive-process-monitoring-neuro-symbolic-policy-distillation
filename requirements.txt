@@ -1,0 +1,15 @@
+# Dependencias para ongoing-bps-state-short-term
+log-distance-measures==2.1.0
+pix-framework==0.14.2
+ongoing-process-state==2.1.2
+# Prosimos se instala desde repo clonado
+# Ruta absoluta desde la carpeta nuevo
+-e /home/andrew/Documents/asistencia-graduada-phd-oscar/paper1/repos-asis-online-predictivo/whats-coming-next-short-term-simulation-of-business-processes-from-current-state/libraries-used/Prosimos
+pandas==2.2.3
+numpy==1.26.4
+networkx==3.4.2
+lxml==5.3.1
+scikit-learn==1.6.1
+tqdm==4.67.1
+pyyaml>=6.0
+
