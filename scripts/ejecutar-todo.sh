@@ -24,7 +24,7 @@ if [ ! -d "$VENV_DIR" ]; then
     pip install --upgrade pip
     pip install -r "$PROJECT_ROOT/requirements.txt" || {
         echo "   Error al instalar dependencias"
-        exit 1
+    exit 1
     }
     deactivate
     echo "✅ Dependencias instaladas"

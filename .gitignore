@@ -162,4 +162,4 @@ cython_debug/
 
 .simod_temp/
 .simod_temp*/
-.logs/BPI2017/
+logs/BPI2017/

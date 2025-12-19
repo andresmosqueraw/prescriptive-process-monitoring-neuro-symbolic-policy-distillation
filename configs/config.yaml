@@ -18,6 +18,11 @@ log_config:
   # Si se especifica aquí, se puede ejecutar sin argumentos
   log_path: logs/purchasing-example.csv  # Ejemplo: "../../data/0.logs/PurchasingExample/PurchasingExample.csv"
   
+  # Rutas a logs BPI 2017 (para evaluación de benchmarks)
+  bpi2017:
+    xes_path: logs/BPI2017/BPI Challenge 2017.xes.gz
+    csv_path: logs/BPI2017/bpi-challenge-2017.csv
+  
   # Mapeo de columnas del log (ajustar según el formato del log)
   column_mapping:
     case: "caseid"
