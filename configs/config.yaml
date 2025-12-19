@@ -114,15 +114,19 @@ ongoing_config:
 script_config:
   # Directorio donde se guardarán los archivos generados por Simod
   # Si es null, se usa data/generado-simod dentro de la carpeta nuevo/
-  output_dir: null
+  output_dir: results/simod/
   
   # Directorio donde se guardará el estado parcial (compute_state.py)
   # Si es null, se usa data/generado-state dentro de la carpeta nuevo/
-  state_output_dir: null
+  state_output_dir: results/state/
   
-  # Directorio donde se guardarán los resultados de simulación (run_simulation.py)
-  # Si es null, se usa data/generado-short-term-simulation dentro de la carpeta nuevo/
-  simulation_output_dir: null
+  # Directorio donde se guardará el experience buffer del RL (train_agent_in_gym.py)
+  # Si es null, se usa data/generado-rl-train dentro de la carpeta del proyecto
+  rl_output_dir: results/rl/
+  
+  # Directorio donde se guardará el modelo destilado (distill_policy.py)
+  # Si es null, se usa data/ dentro de la carpeta del proyecto
+  distill_output_dir: results/distill/
   
   # Prefijo para directorios temporales (se crean en la carpeta del log)
   temp_dir_prefix: ".simod_temp"
@@ -132,4 +136,44 @@ script_config:
     image: "nokal/simod"
     user_id: null  # null = usar os.getuid()
     group_id: null  # null = usar os.getgid()
+
+# Configuración de entrenamiento RL (train_agent_in_gym.py)
+rl_config:
+  # Número de episodios de entrenamiento
+  episodes: 10
+  
+  # Número de casos a simular por episodio
+  total_cases: 50
+  
+  # Tasa de aprendizaje del agente RL
+  learning_rate: 0.01
+  
+  # Exploración inicial (epsilon-greedy)
+  epsilon: 0.1
+  
+  # Presupuesto de recursos para SymbolicSafetyGuard
+  resource_budget: 100
+
+# Configuración de destilación de política (distill_policy.py)
+distill_config:
+  # Ruta al archivo experience buffer (entrada)
+  # Si es null, se usa data/generado-rl-train/experience_buffer.csv
+  input_csv: results/rl/experience_buffer.csv
+  
+  # Ruta donde se guardará el modelo destilado (salida)
+  # Si es null, se usa data/final_policy_model.pkl
+  output_model: results/distill/final_policy_model.pkl
+  
+  # Profundidad máxima del árbol de decisión
+  max_depth: 5
+  
+  # Criterio para dividir nodos ('entropy' o 'gini')
+  criterion: "entropy"
+  
+  # Tamaño del conjunto de prueba (0.0 a 1.0)
+  test_size: 0.2
+  
+  # Umbral de calidad para filtrar experiencias
+  # Solo se usan experiencias con reward_causal >= quality_threshold
+  quality_threshold: 0.0
 

@@ -210,7 +210,11 @@ def compute_state(config=None):
     if output_dir is None:
         output_dir = os.path.join(base_dir, "data", "generado-state")
     else:
-        output_dir = os.path.abspath(output_dir)
+        # Si es relativa, hacerla absoluta
+        if not os.path.isabs(output_dir):
+            output_dir = os.path.join(base_dir, output_dir)
+        else:
+            output_dir = os.path.abspath(output_dir)
     
     # Crear directorio de salida si no existe
     os.makedirs(output_dir, exist_ok=True)
@@ -228,17 +232,17 @@ def compute_state(config=None):
     # Obtener nombre del log
     log_name = get_log_name_from_path(log_path)
     
-    # Rutas de BPMN y JSON
-    simod_output_dir = os.path.join(base_dir, "data", "generado-simod")
-    bpmn_path_simod = os.path.join(simod_output_dir, f"{log_name}.bpmn")
-    json_path_simod = os.path.join(simod_output_dir, f"{log_name}.json")
-    
-    if os.path.exists(bpmn_path_simod) and os.path.exists(json_path_simod):
-        bpmn_path = bpmn_path_simod
-        json_path = json_path_simod
+    # Rutas de BPMN y JSON - usar script_config.output_dir (donde Simod guarda los archivos)
+    simod_output_dir = script_config.get("output_dir")
+    if simod_output_dir is None:
+        simod_output_dir = os.path.join(base_dir, "data", "generado-simod")
     else:
-        bpmn_path = os.path.join(base_dir, f"{log_name}.bpmn")
-        json_path = os.path.join(base_dir, f"{log_name}.json")
+        # Si es relativa, hacerla absoluta
+        if not os.path.isabs(simod_output_dir):
+            simod_output_dir = os.path.join(base_dir, simod_output_dir)
+    
+    bpmn_path = os.path.join(simod_output_dir, f"{log_name}.bpmn")
+    json_path = os.path.join(simod_output_dir, f"{log_name}.json")
     
     # Verificar que todos los archivos existan
     files_to_check = {

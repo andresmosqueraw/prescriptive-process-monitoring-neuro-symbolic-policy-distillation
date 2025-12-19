@@ -194,9 +194,10 @@ class RLAgent:
     Agente simple de RL (Q-Learning) para demostración.
     En producción, esto sería un wrapper para Stable-Baselines3 (PPO/DQN).
     """
-    def __init__(self, action_space=None):
+    def __init__(self, action_space=None, learning_rate=0.01, epsilon=0.1):
         self.q_table = {} # State -> {Action -> Value}
-        self.epsilon = 0.1 # Exploración
+        self.epsilon = epsilon # Exploración
+        self.learning_rate = learning_rate
         self.action_space = action_space
         
     def get_action(self, state_str, possible_actions=None):
@@ -218,10 +219,9 @@ class RLAgent:
         # Retornar acción con mayor Q-value
         return max(self.q_table[state_str], key=self.q_table[state_str].get)
 
-    def update(self, state, action, reward, next_state):
+    def update(self, state, action, reward, next_state, gamma=0.9):
         # Q-Learning Update Rule (Simplificada)
-        alpha = 0.1
-        gamma = 0.9
+        alpha = self.learning_rate
         
         # Inicialización robusta (action_space puede ser dinámica)
         if state not in self.q_table:
@@ -318,14 +318,51 @@ class NeuroSymbolicFlowSelector:
 # 3. MAIN TRAINING LOOP
 # ==========================================
 
-def run_causal_gym_training(bpmn_path, json_path, episodes=10):
+def run_causal_gym_training(bpmn_path, json_path, config=None):
+    """
+    Función principal de entrenamiento RL.
+    
+    Args:
+        bpmn_path: Ruta al archivo BPMN
+        json_path: Ruta al archivo JSON de parámetros
+        config: Diccionario de configuración (si None, se carga desde config.yaml)
+    """
+    # Cargar configuración si no se proporciona
+    if config is None:
+        config = load_config()
+        if config is None:
+            print("❌ No se pudo cargar la configuración desde configs/config.yaml")
+            return
+    
+    rl_config = config.get("rl_config", {})
+    script_config = config.get("script_config", {})
+    
+    # Obtener parámetros de configuración
+    episodes = rl_config.get("episodes", 10)
+    total_cases = rl_config.get("total_cases", 50)
+    learning_rate = rl_config.get("learning_rate", 0.01)
+    epsilon = rl_config.get("epsilon", 0.1)
+    resource_budget = rl_config.get("resource_budget", 100)
+    
     print("="*80)
     print("🏋️‍♂️  CAUSAL-GYM: INICIANDO ENTRENAMIENTO NEURO-SIMBÓLICO")
     print("="*80)
+    print(f"📋 Configuración:")
+    print(f"   • Episodios: {episodes}")
+    print(f"   • Casos por episodio: {total_cases}")
+    print(f"   • Learning rate: {learning_rate}")
+    print(f"   • Epsilon (exploración): {epsilon}")
+    print(f"   • Presupuesto de recursos: {resource_budget}")
+    print()
     
     # 1. Configuración de Componentes
     agent = RLAgent(action_space=None)
+    agent.epsilon = epsilon
+    agent.learning_rate = learning_rate
+    
     safety = SymbolicSafetyGuard(rules_config={})
+    safety.resource_budget = resource_budget
+    
     reward_engine = CausalRewardEngine()
     
     # 2. Preparar Monkey Patching
@@ -346,17 +383,34 @@ def run_causal_gym_training(bpmn_path, json_path, episodes=10):
         print(f"\n🎬 Episodio {episode}/{episodes}")
         
         # Reiniciar presupuesto por episodio
-        safety.resource_budget = 100 
+        safety.resource_budget = resource_budget
         
         # Ejecutar Simulación (Prosimos)
         # Prosimos usará nuestro selector parcheado internamente en los gateways
-        run_simulation(bpmn_path, json_path, total_cases=50)
+        run_simulation(bpmn_path, json_path, total_cases=total_cases)
         
         print(f"   Buffer size: {len(EXPERIENCE_BUFFER)} experiencias recolectadas")
 
     # 4. Exportar Experience Buffer para Fase 3 (Distillation)
-    output_file = os.path.join(os.getcwd(), "data", "generado-rl-train/experience_buffer.csv")
-    os.makedirs(os.path.dirname(output_file), exist_ok=True)
+    # Determinar directorio de salida
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    if os.path.basename(script_dir) == "src":
+        base_dir = os.path.dirname(script_dir)
+    else:
+        base_dir = script_dir
+    
+    rl_output_dir = script_config.get("rl_output_dir")
+    if rl_output_dir is None:
+        rl_output_dir = os.path.join(base_dir, "data", "generado-rl-train")
+    else:
+        # Si es relativa, hacerla absoluta
+        if not os.path.isabs(rl_output_dir):
+            rl_output_dir = os.path.join(base_dir, rl_output_dir)
+        else:
+            rl_output_dir = os.path.abspath(rl_output_dir)
+    
+    os.makedirs(rl_output_dir, exist_ok=True)
+    output_file = os.path.join(rl_output_dir, "experience_buffer.csv")
     
     if EXPERIENCE_BUFFER:
         keys = EXPERIENCE_BUFFER[0].keys()
@@ -370,19 +424,65 @@ def run_causal_gym_training(bpmn_path, json_path, episodes=10):
         print("\n⚠️  No se recolectaron experiencias.")
 
 if __name__ == "__main__":
-    # Rutas default (ajustar según tu estructura de carpetas)
+    # Cargar configuración
+    config = load_config()
+    if config is None:
+        print("❌ No se pudo cargar la configuración desde configs/config.yaml")
+        sys.exit(1)
+    
+    log_config = config.get("log_config", {})
+    script_config = config.get("script_config", {})
+    
+    # Obtener directorio base
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    # Si estamos en src/, subir un nivel para llegar a nuevo/
     if os.path.basename(script_dir) == "src":
         base_dir = os.path.dirname(script_dir)
     else:
         base_dir = script_dir
-
-    bpmn_file = os.path.join(base_dir, "data/generado-simod/PurchasingExample.bpmn")
-    json_file = os.path.join(base_dir, "data/generado-simod/PurchasingExample.json")
     
-    # Asegurar que el CSV se guarde bajo nuevo/data aunque el CWD sea otro
-    os.makedirs(os.path.join(base_dir, "data"), exist_ok=True)
+    # Obtener nombre del log desde log_path
+    log_path = log_config.get("log_path")
+    if not log_path:
+        print("❌ Error: No se especificó log_path en config.yaml")
+        sys.exit(1)
+    
+    # Si es relativa, hacerla absoluta
+    if not os.path.isabs(log_path):
+        log_path = os.path.join(base_dir, log_path)
+    
+    # Obtener nombre del log (sin extensión)
+    log_name = os.path.splitext(os.path.basename(log_path))[0]
+    if log_name.endswith('.xes'):
+        log_name = os.path.splitext(log_name)[0]
+    
+    # Obtener directorio de salida de Simod
+    simod_output_dir = script_config.get("output_dir")
+    if simod_output_dir is None:
+        simod_output_dir = os.path.join(base_dir, "data", "generado-simod")
+    else:
+        # Si es relativa, hacerla absoluta
+        if not os.path.isabs(simod_output_dir):
+            simod_output_dir = os.path.join(base_dir, simod_output_dir)
+        else:
+            simod_output_dir = os.path.abspath(simod_output_dir)
+    
+    # Construir rutas de BPMN y JSON
+    bpmn_file = os.path.join(simod_output_dir, f"{log_name}.bpmn")
+    json_file = os.path.join(simod_output_dir, f"{log_name}.json")
+    
+    # Verificar que existan
+    if not os.path.exists(bpmn_file):
+        print(f"❌ Error: No se encontró el archivo BPMN: {bpmn_file}")
+        print("   Ejecuta primero extract_bpmn_json.py para generar los archivos")
+        sys.exit(1)
+    
+    if not os.path.exists(json_file):
+        print(f"❌ Error: No se encontró el archivo JSON: {json_file}")
+        print("   Ejecuta primero extract_bpmn_json.py para generar los archivos")
+        sys.exit(1)
+    
+    # Cambiar al directorio base
     os.chdir(base_dir)
-
-    run_causal_gym_training(bpmn_file, json_file, episodes=5)
+    
+    # Ejecutar entrenamiento
+    run_causal_gym_training(bpmn_file, json_file, config)
