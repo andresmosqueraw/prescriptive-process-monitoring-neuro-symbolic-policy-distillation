@@ -105,15 +105,21 @@ def compress_log_to_gz(csv_path, gz_path):
             shutil.copyfileobj(f_in, f_out)
     print(f"✅ Log comprimido: {gz_path}")
 
-def create_config_yaml(log_name, output_dir, simod_config, log_config):
+def create_config_yaml(log_name, output_dir, simod_config, log_config, log_format="csv"):
     """Crea el archivo de configuración YAML para Simod"""
     config_path = os.path.join(output_dir, "configuration.yaml")
+    
+    # Determinar nombre del archivo según formato
+    if log_format == "xes":
+        train_log_path = f"./{log_name}.xes"
+    else:
+        train_log_path = f"./{log_name}.csv.gz"
     
     # Construir configuración para Simod usando los valores del config.yaml
     simod_yaml_config = {
         "version": simod_config.get("version", 5),
         "common": {
-            "train_log_path": f"./{log_name}.csv.gz",
+            "train_log_path": train_log_path,
             "log_ids": {
                 "case": log_config["column_mapping"]["case"],
                 "activity": log_config["column_mapping"]["activity"],
@@ -234,7 +240,7 @@ def extract_bpmn_json(log_path, config=None):
     Función principal: extrae BPMN y JSON desde un log usando Simod.
     
     Args:
-        log_path: Ruta al archivo CSV del log (ej: PurchasingExample.csv)
+        log_path: Ruta al archivo CSV, XES o XES.GZ del log (ej: PurchasingExample.csv, log.xes, log.xes.gz)
         config: Diccionario de configuración (si None, se carga desde config.yaml)
     """
     print("=" * 80)
@@ -257,7 +263,17 @@ def extract_bpmn_json(log_path, config=None):
     # Obtener información del log
     log_dir = os.path.dirname(os.path.abspath(log_path))
     log_filename = os.path.basename(log_path)
+    
+    # Detectar formato del log
+    log_ext = os.path.splitext(log_filename)[1].lower()
+    if log_ext == '.gz':
+        # Si es .gz, obtener la extensión del archivo sin comprimir
+        log_ext = os.path.splitext(os.path.splitext(log_filename)[0])[1].lower()
+    
+    is_xes = log_ext in ['.xes']
     log_name = os.path.splitext(log_filename)[0]
+    if log_name.endswith('.xes'):
+        log_name = os.path.splitext(log_name)[0]
     
     # Determinar directorio de salida
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -293,12 +309,35 @@ def extract_bpmn_json(log_path, config=None):
     os.makedirs(temp_output_dir, exist_ok=True)
     
     try:
-        # Paso 1: Comprimir el log
-        gz_path = os.path.join(temp_input_dir, f"{log_name}.csv.gz")
-        compress_log_to_gz(log_path, gz_path)
+        # Paso 1: Preparar el log para Simod
+        if is_xes:
+            # Simod acepta XES directamente, solo copiar/descomprimir si es necesario
+            if log_path.endswith('.gz'):
+                # Descomprimir XES.GZ a XES
+                xes_path = os.path.join(temp_input_dir, f"{log_name}.xes")
+                print(f"📦 Descomprimiendo {log_path} a {xes_path}...")
+                with gzip.open(log_path, 'rb') as f_in:
+                    with open(xes_path, 'wb') as f_out:
+                        shutil.copyfileobj(f_in, f_out)
+                print(f"✅ Log descomprimido: {xes_path}")
+                log_path_for_simod = xes_path
+                simod_log_name = f"{log_name}.xes"
+            else:
+                # Copiar XES al directorio temporal
+                xes_path = os.path.join(temp_input_dir, f"{log_name}.xes")
+                shutil.copy2(log_path, xes_path)
+                log_path_for_simod = xes_path
+                simod_log_name = f"{log_name}.xes"
+        else:
+            # CSV: comprimir a CSV.GZ
+            gz_path = os.path.join(temp_input_dir, f"{log_name}.csv.gz")
+            compress_log_to_gz(log_path, gz_path)
+            log_path_for_simod = gz_path
+            simod_log_name = f"{log_name}.csv.gz"
         
         # Paso 2: Crear archivo de configuración para Simod
-        config_path = create_config_yaml(log_name, temp_input_dir, simod_config, log_config)
+        log_format = "xes" if is_xes else "csv"
+        config_path = create_config_yaml(log_name, temp_input_dir, simod_config, log_config, log_format)
         config_filename = os.path.basename(config_path)
         
         # Paso 3: Ejecutar Simod

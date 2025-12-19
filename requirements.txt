@@ -20,4 +20,5 @@ lxml==5.3.1
 scikit-learn==1.6.1
 tqdm==4.67.1
 pyyaml>=6.0
+pm4py>=2.7.0  # Para soporte de archivos XES
 

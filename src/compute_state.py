@@ -11,6 +11,7 @@ import json
 import yaml
 import pandas as pd
 import numpy as np
+import gzip
 from datetime import datetime
 
 # Verificar si estamos en un entorno virtual
@@ -280,11 +281,63 @@ def compute_state(config=None):
     
     # Leer el log para calcular puntos de corte
     print("\n📊 Leyendo log de eventos para calcular puntos de corte...")
-    log_df = pd.read_csv(log_path)
     
-    # Aplicar mapeo de columnas
-    if csv_to_standard:
-        log_df = log_df.rename(columns=csv_to_standard)
+    # Detectar formato del log
+    log_ext = os.path.splitext(log_path)[1].lower()
+    if log_ext == '.gz':
+        log_ext = os.path.splitext(os.path.splitext(log_path)[0])[1].lower()
+    
+    if log_ext == '.xes':
+        # Leer archivo XES usando pm4py
+        try:
+            import pm4py
+            if log_path.endswith('.gz'):
+                # Descomprimir temporalmente
+                import tempfile
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.xes') as tmp_file:
+                    with gzip.open(log_path, 'rb') as f_in:
+                        tmp_file.write(f_in.read())
+                    tmp_path = tmp_file.name
+                log_df = pm4py.convert_to_dataframe(pm4py.read_xes(tmp_path))
+                os.unlink(tmp_path)
+            else:
+                log_df = pm4py.convert_to_dataframe(pm4py.read_xes(log_path))
+            
+            # Mapear columnas estándar de XES a formato esperado
+            xes_to_standard = {
+                'case:concept:name': 'CaseId',
+                'concept:name': 'Activity',
+                'org:resource': 'Resource',
+                'time:timestamp': 'EndTime',  # XES generalmente tiene un timestamp
+            }
+            
+            # Renombrar columnas si existen
+            for xes_col, std_col in xes_to_standard.items():
+                if xes_col in log_df.columns:
+                    log_df = log_df.rename(columns={xes_col: std_col})
+            
+            # Si no hay StartTime, usar EndTime como StartTime
+            if 'StartTime' not in log_df.columns and 'EndTime' in log_df.columns:
+                log_df['StartTime'] = log_df['EndTime']
+            
+            # Para XES, no aplicar mapeo de CSV (ya está mapeado)
+            csv_to_standard = {}
+        except ImportError:
+            print("❌ Error: pm4py no está instalado. Instala con: pip install pm4py")
+            print("   O convierte el log XES a CSV primero")
+            return None
+        except Exception as e:
+            print(f"❌ Error leyendo archivo XES: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+    else:
+        # Leer archivo CSV
+        log_df = pd.read_csv(log_path)
+        
+        # Aplicar mapeo de columnas solo para CSV
+        if csv_to_standard:
+            log_df = log_df.rename(columns=csv_to_standard)
     
     # Convertir timestamps
     log_df['StartTime'] = pd.to_datetime(log_df['StartTime'], utc=True)

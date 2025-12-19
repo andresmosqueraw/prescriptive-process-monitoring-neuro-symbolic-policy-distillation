@@ -135,18 +135,31 @@ Extrae modelos BPMN y JSON desde un log de eventos usando Simod.
 - Docker instalado y funcionando
 - Imagen de Simod: `nokal/simod` (se descarga automáticamente)
 
+**Formatos soportados:**
+- **CSV** (`.csv`) - Requiere mapeo de columnas en `config.yaml`
+- **XES** (`.xes`) - Formato estándar de process mining
+- **XES comprimido** (`.xes.gz`) - XES comprimido con gzip
+
 **Configuración:**
 - Edita `configs/config.yaml` en la sección `log_config` para especificar:
-  - `log_path`: Ruta al archivo CSV del log
-  - `column_mapping`: Mapeo de columnas (case, activity, resource, start_time, end_time)
+  - `log_path`: Ruta al archivo del log (CSV, XES o XES.GZ)
+  - `column_mapping`: Mapeo de columnas (solo necesario para CSV)
+    - Para XES, se usan los nombres estándar: `case:concept:name`, `concept:name`, `org:resource`, `time:timestamp`
 
 **Archivos generados:**
 - `data/generado-simod/<log_name>.bpmn` - Modelo BPMN descubierto
 - `data/generado-simod/<log_name>.json` - Parámetros estocásticos
 
-**Ejemplo:**
+**Ejemplos:**
 ```bash
+# Con archivo CSV
 python src/extract_bpmn_json.py logs/PurchasingExample.csv
+
+# Con archivo XES
+python src/extract_bpmn_json.py logs/BPI_Challenge_2017.xes
+
+# Con archivo XES comprimido
+python src/extract_bpmn_json.py logs/BPI_Challenge_2017.xes.gz
 ```
 
 ### Fase 2: compute_state.py
@@ -155,7 +168,7 @@ Calcula el estado parcial del proceso en puntos de corte temporales usando `ongo
 
 **Requisitos:**
 - Archivos generados por Fase 1 (`.bpmn` y `.json`)
-- Log de eventos original (`.csv`)
+- Log de eventos original (`.csv`, `.xes` o `.xes.gz`)
 
 **Configuración:**
 - Edita `configs/config.yaml` en la sección `state_config`:
