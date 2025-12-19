@@ -5,7 +5,7 @@ log_config:
   # Ruta al archivo CSV del log original/base
   # Si es null, se debe proporcionar como argumento de línea de comandos
   # Si se especifica aquí, se puede ejecutar sin argumentos
-  log_path: data/PurchasingExample.csv  # Ejemplo: "../../data/0.logs/PurchasingExample/PurchasingExample.csv"
+  log_path: logs/PurchasingExample.csv  # Ejemplo: "../../data/0.logs/PurchasingExample/PurchasingExample.csv"
   
   # Mapeo de columnas del log (ajustar según el formato del log)
   column_mapping:
