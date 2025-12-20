@@ -13,31 +13,34 @@ external_repos:
 
 # Configuración del log
 log_config:
-  # Ruta al archivo CSV del log original/base
+  # Ruta al archivo del log original/base (CSV, XES o XES.GZ)
   # Si es null, se debe proporcionar como argumento de línea de comandos
   # Si se especifica aquí, se puede ejecutar sin argumentos
-  log_path: logs/purchasing-example.csv  # Ejemplo: "../../data/0.logs/PurchasingExample/PurchasingExample.csv"
+  # NOTA: Usando muestra CSV de 300 casos para pruebas rápidas (1.0% del total)
+  log_path: logs/BPI2017/bpi-challenge-2017-sample.csv
   
   # Rutas a logs BPI 2017 (para evaluación de benchmarks)
   bpi2017:
-    xes_path: logs/BPI2017/BPI Challenge 2017.xes.gz
+    xes_path: logs/BPI2017/bpi-challenge-2017.xes.gz
     csv_path: logs/BPI2017/bpi-challenge-2017.csv
   
-  # Mapeo de columnas del log (ajustar según el formato del log)
+  # Mapeo de columnas del log (solo necesario para CSV, XES usa nombres estándar automáticamente)
+  # Para BPI 2017 en formato XES: no se necesita mapeo (Simod detecta automáticamente)
+  # Para BPI 2017 en formato CSV (si se usa):
   column_mapping:
-    case: "caseid"
-    activity: "task"
-    resource: "user"
-    start_time: "start_timestamp"
-    end_time: "end_timestamp"
+    case: "case:concept:name"
+    activity: "concept:name"
+    resource: "org:resource"
+    start_time: "time:timestamp"  # BPI 2017 solo tiene un timestamp, usar el mismo para start y end
+    end_time: "time:timestamp"
   
   # Si el log tiene nombres de columnas diferentes, ajustar aquí
-  # Ejemplo para logs con otros nombres:
-  # case: "Case ID"
-  # activity: "Activity"
-  # resource: "Resource"
-  # start_time: "StartTime"
-  # end_time: "EndTime"
+  # Ejemplo para purchasing-example.csv:
+  # case: "caseid"
+  # activity: "task"
+  # resource: "user"
+  # start_time: "start_timestamp"
+  # end_time: "end_timestamp"
 
 # Configuración de Simod
 simod_config:

@@ -1,307 +1,151 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-PHASE 3: POLICY DISTILLATION (Imitation Learning)
--------------------------------------------------
-Este script toma el 'Experience Buffer' generado por el Causal-Gym (Fase 2)
-y entrena un modelo interpretable y ultrarrápido (Student) para producción.
-
-Objetivos:
-1. Filtrar comportamientos inseguros o de baja recompensa.
-2. Entrenar un Decision Tree (White-Box) que imite al Agente RL.
-3. Exportar reglas SQL/IF-THEN para auditoría.
-4. Benchmarking de latencia para demostrar superioridad (<1ms).
+PHASE 3: POLICY DISTILLATION
 """
-
 import os
 import sys
 import time
 import pandas as pd
 import numpy as np
 import joblib
-from typing import Dict, Any, Optional
 from sklearn.tree import DecisionTreeClassifier, export_text
 from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.pipeline import Pipeline
-from sklearn.metrics import classification_report, accuracy_score
+from sklearn.metrics import accuracy_score
 
 from utils.config import load_config, get_log_name_from_path, build_output_path
 from utils.logging import setup_logger
 
-# Configurar logger
 logger = setup_logger(__name__)
 
-def load_experience_buffer(file_path: str) -> pd.DataFrame:
-    """
-    Carga el experience buffer desde un archivo CSV.
-    
-    Args:
-        file_path: Ruta al archivo CSV del experience buffer
-    
-    Returns:
-        DataFrame con las experiencias
-    
-    Raises:
-        SystemExit: Si el archivo no existe
-    """
+def load_experience_buffer(file_path):
     if not os.path.exists(file_path):
-        logger.error(f"No se encontró el buffer en {file_path}")
-        logger.error("Ejecuta primero la Fase 2 (train_agent_in_gym.py)")
+        logger.error(f"No buffer: {file_path}")
         sys.exit(1)
-    
-    logger.info(f"Cargando Experience Buffer: {file_path}")
-    df = pd.read_csv(file_path)
-    logger.info(f"Total de experiencias crudas: {len(df)}")
-    return df
+    return pd.read_csv(file_path)
 
-def filter_high_quality_experiences(
-    df: pd.DataFrame,
-    quality_threshold: float = 0.0
-) -> pd.DataFrame:
-    """
-    Estrategia de Distilación:
-    Solo aprendemos de las acciones que fueron:
-    1. SEGURAS (was_safe == True) -> Garantiza Compliance 100%
-    2. EXITOSAS (reward_causal > umbral) -> Garantiza Profit
-    
-    Args:
-        df: DataFrame con experiencias
-        quality_threshold: Umbral de calidad para filtrar (0.0 = usar mediana)
-    
-    Returns:
-        DataFrame filtrado con experiencias de alta calidad
-    """
-    logger.info("Filtrando experiencias para el 'Student Model'...")
-    
-    # 1. Filtro de Seguridad
-    initial_len = len(df)
+def filter_high_quality_experiences(df, quality_threshold=0.0):
+    logger.info("Filtrando experiencias...")
+    # 1. Seguridad
     df_safe = df[df['was_safe'] == True].copy()
-    logger.info(f"Eliminadas {initial_len - len(df_safe)} acciones inseguras (Violaciones LTL)")
     
-    # 2. Filtro de Calidad (Profit)
+    # 2. Profit (Reward Causal)
     if 'reward_causal' in df_safe.columns:
-        if quality_threshold is None or quality_threshold == 0.0:
-            # Si no se especifica umbral, usar el median como fallback
+        if quality_threshold == 0.0:
             threshold = df_safe['reward_causal'].median()
-            logger.info(f"Usando umbral automático (mediana): {threshold:.2f}")
         else:
             threshold = quality_threshold
-            logger.info(f"Usando umbral configurado: {threshold:.2f}")
-        
         df_elite = df_safe[df_safe['reward_causal'] >= threshold].copy()
-        logger.info(f"Filtrando acciones sub-óptimas (Reward < {threshold:.2f})")
     else:
         df_elite = df_safe
-        logger.warning("No se encontró columna 'reward_causal', usando todas las experiencias seguras")
         
-    logger.info(f"Dataset final de entrenamiento: {len(df_elite)} ejemplos de alta calidad")
+    logger.info(f"Dataset final: {len(df_elite)} muestras")
     return df_elite
 
-def train_student_model(
-    df: pd.DataFrame,
-    max_depth: int = 5,
-    criterion: str = 'entropy',
-    test_size: float = 0.2,
-    random_state: int = 42
-) -> Pipeline:
-    """
-    Entrena un Árbol de Decisión simple para imitar al Agente RL.
+def train_student_model(df, max_depth=5):
+    logger.info(f"Entrenando Student Tree (depth={max_depth})...")
     
-    Args:
-        df: DataFrame con experiencias filtradas
-        max_depth: Profundidad máxima del árbol
-        criterion: Criterio para dividir nodos ('entropy' o 'gini')
-        test_size: Tamaño del conjunto de prueba (0.0 a 1.0)
-        random_state: Seed para reproducibilidad
-    
-    Returns:
-        Pipeline entrenado (vectorizer + classifier)
-    """
-    logger.info("Entrenando 'Student Model' (Decision Tree)...")
-    logger.info(f"  • Profundidad máxima: {max_depth}")
-    logger.info(f"  • Criterio: {criterion}")
-    logger.info(f"  • Tamaño de prueba: {test_size*100:.0f}%")
-    
-    # Features y Target
-    # En train_agent_in_gym.py, el estado era un string "gateway=...".
-    # Usamos CountVectorizer para convertir eso a vector numérico simple.
-    X_raw = df['state_feature_vector']
+    X = df['state_feature_vector']
     y = df['action_taken']
     
-    # Pipeline: Vectorización -> Árbol
-    # max_depth asegura que el modelo sea interpretable por humanos (White-Box)
     model = Pipeline([
         ('vectorizer', CountVectorizer(binary=True)),
-        ('classifier', DecisionTreeClassifier(max_depth=max_depth, criterion=criterion, random_state=random_state))
+        ('classifier', DecisionTreeClassifier(max_depth=max_depth, criterion='entropy', random_state=42))
     ])
     
-    X_train, X_test, y_train, y_test = train_test_split(X_raw, y, test_size=test_size, random_state=random_state)
-    
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
     model.fit(X_train, y_train)
     
-    # Evaluación
-    preds = model.predict(X_test)
-    acc = accuracy_score(y_test, preds)
-    logger.info(f"Student Model Accuracy (Imitación del Maestro): {acc*100:.2f}%")
-    
+    acc = accuracy_score(y_test, model.predict(X_test))
+    logger.info(f"Accuracy Student: {acc*100:.2f}%")
     return model
 
-def generate_white_box_rules(model: Pipeline) -> None:
-    """
-    Extrae las reglas IF-THEN del árbol para demostrar explicabilidad.
-    
-    Args:
-        model: Pipeline entrenado (vectorizer + classifier)
-    """
-    logger.info("REGLAS DE NEGOCIO GENERADAS (White-Box Policy):")
-    logger.info("-" * 60)
-    
-    tree = model.named_steps['classifier']
-    vec = model.named_steps['vectorizer']
-    feature_names = vec.get_feature_names_out()
-    
-    rules_text = export_text(tree, feature_names=list(feature_names))
-    logger.info(f"\n{rules_text}")
-    logger.info("-" * 60)
-    logger.info("Estas reglas pueden exportarse directamente a SQL o Java Drools.")
-
-def benchmark_latency(model: Pipeline, sample_input: str) -> None:
-    """
-    Prueba de fuego: Latencia de inferencia.
-    Demuestra por qué esto gana a las Redes Neuronales y Conformal Prediction.
-    
-    Args:
-        model: Pipeline entrenado
-        sample_input: Input de ejemplo para el benchmark
-    """
-    logger.info("BENCHMARK DE LATENCIA (Producción):")
-    
-    iterations = 10000
-    start_time = time.time()
-    
-    # Simulamos batch size = 1 (Tiempo Real puro)
-    for _ in range(iterations):
-        _ = model.predict([sample_input])
-        
-    total_time = time.time() - start_time
-    avg_latency_ms = (total_time / iterations) * 1000
-    
-    logger.info(f"Inferencia promedio (CPU): {avg_latency_ms:.4f} ms")
-    
-    if avg_latency_ms < 1.0:
-        logger.info("RESULTADO: LATENCIA < 1ms (Gana el Benchmark)")
-    else:
-        logger.warning("Latencia alta, revisar profundidad del árbol.")
-
-def main() -> None:
-    """Función principal para ejecutar desde línea de comandos"""
-    # Cargar configuración
+def main():
     config = load_config()
     if config is None:
-        logger.error("No se pudo cargar la configuración desde configs/config.yaml")
+        logger.error("No se pudo cargar la configuración")
         sys.exit(1)
     
-    distill_config = config.get("distill_config", {})
-    script_config = config.get("script_config", {})
+    # Obtener configuración
     log_config = config.get("log_config", {})
+    script_config = config.get("script_config", {})
+    distill_config = config.get("distill_config", {})
     
-    # Encontrar el directorio raíz del proyecto
+    # Encontrar directorio raíz del proyecto
     script_dir = os.path.dirname(os.path.abspath(__file__))
     # script_dir = src/causal-gym/
     src_dir = os.path.dirname(script_dir)  # src/
     project_root = os.path.dirname(src_dir)  # proyecto raíz
     
-    # Obtener nombre del log para construir rutas
+    # Obtener nombre del log
     log_path = log_config.get("log_path")
     if log_path:
         if not os.path.isabs(log_path):
             log_path = os.path.join(project_root, log_path)
         log_name = get_log_name_from_path(log_path)
     else:
-        # Fallback: intentar extraer del input_csv si está configurado
-        input_csv_temp = distill_config.get("input_csv")
-        if input_csv_temp and os.path.basename(input_csv_temp) == "experience_buffer.csv":
-            # Intentar extraer nombre del log de la ruta
-            # Ej: "results/PurchasingExample/rl/experience_buffer.csv"
-            parts = input_csv_temp.split('/')
-            if len(parts) >= 2:
-                log_name = parts[-3] if len(parts) >= 3 else "default"
-            else:
-                log_name = "default"
-        else:
-            log_name = "default"
+        log_name = "default"
     
-    # Obtener rutas de entrada y salida (incluyendo nombre del log)
+    # Determinar ruta del experience buffer (entrada)
     input_csv = distill_config.get("input_csv")
-    if input_csv is None:
-        # Construir ruta usando build_output_path
-        rl_output_dir_base = script_config.get("rl_output_dir")
-        rl_output_dir = build_output_path(rl_output_dir_base, log_name, "rl", default_base="data")
-        input_csv = os.path.join(rl_output_dir, "experience_buffer.csv")
-    else:
-        # Si es relativa, hacerla absoluta
+    if input_csv:
         if not os.path.isabs(input_csv):
             input_csv = os.path.join(project_root, input_csv)
-    
-    output_model = distill_config.get("output_model")
-    if output_model is None:
-        # Construir ruta usando build_output_path
-        distill_output_dir_base = script_config.get("distill_output_dir")
-        distill_output_dir = build_output_path(distill_output_dir_base, log_name, "distill", default_base="data")
-        output_model = os.path.join(distill_output_dir, "final_policy_model.pkl")
     else:
-        # Si es relativa, hacerla absoluta
-        if not os.path.isabs(output_model):
-            output_model = os.path.join(project_root, output_model)
+        # Construir desde rl_output_dir
+        rl_output_dir_base = script_config.get("rl_output_dir")
+        rl_output_dir = build_output_path(rl_output_dir_base, log_name, "rl", default_base="data")
+        input_csv = os.path.join(project_root, rl_output_dir, "experience_buffer.csv")
     
-    # Crear directorio de salida si no existe
-    os.makedirs(os.path.dirname(output_model), exist_ok=True)
+    # Búsqueda dinámica del buffer si la ruta construida no existe
+    if not os.path.exists(input_csv):
+        logger.warning(f"Buffer no encontrado en: {input_csv}")
+        logger.info("Buscando experience_buffer.csv en results/...")
+        for root, dirs, files in os.walk(os.path.join(project_root, "results")):
+            if "experience_buffer.csv" in files:
+                input_csv = os.path.join(root, "experience_buffer.csv")
+                logger.info(f"Buffer encontrado en: {input_csv}")
+                break
+        else:
+            logger.error("No se encontró experience_buffer.csv en ningún lugar")
+            sys.exit(1)
     
-    # Obtener parámetros de configuración
-    max_depth = distill_config.get("max_depth", 5)
-    criterion = distill_config.get("criterion", "entropy")
-    test_size = distill_config.get("test_size", 0.2)
-    quality_threshold = distill_config.get("quality_threshold", 0.0)
+    logger.info(f"Usando experience buffer: {input_csv}")
     
-    logger.info("=" * 80)
-    logger.info("DESTILACIÓN DE POLÍTICA (Policy Distillation)")
-    logger.info("=" * 80)
-    logger.info(f"Configuración:")
-    logger.info(f"  • Archivo de entrada: {input_csv}")
-    logger.info(f"  • Archivo de salida: {output_model}")
-    logger.info(f"  • Profundidad máxima: {max_depth}")
-    logger.info(f"  • Criterio: {criterion}")
-    logger.info(f"  • Umbral de calidad: {quality_threshold}")
-    
-    # 1. Cargar Datos
     df = load_experience_buffer(input_csv)
-    
-    if len(df) < 10:
-        logger.warning("Muy pocos datos para destilar. Ejecuta más episodios en Fase 2.")
-        return
-
-    # 2. Filtrar (Distillation Strategy)
-    df_clean = filter_high_quality_experiences(df, quality_threshold=quality_threshold)
+    df_clean = filter_high_quality_experiences(df, quality_threshold=distill_config.get("quality_threshold", 0.0))
     
     if len(df_clean) == 0:
-        logger.error("No quedaron datos después del filtrado (¿Todas las acciones fueron inseguras?)")
-        return
+        logger.error("Sin datos para entrenar.")
+        sys.exit(1)
 
-    # 3. Entrenar Student
-    model = train_student_model(df_clean, max_depth=max_depth, criterion=criterion, test_size=test_size)
+    max_depth = distill_config.get("max_depth", 5)
+    model = train_student_model(df_clean, max_depth=max_depth)
     
-    # 4. Demostrar Explicabilidad
-    generate_white_box_rules(model)
+    # Exportar reglas
+    tree = model.named_steps['classifier']
+    feats = model.named_steps['vectorizer'].get_feature_names_out()
+    logger.info(export_text(tree, feature_names=list(feats)))
     
-    # 5. Demostrar Velocidad
-    sample_state = df_clean['state_feature_vector'].iloc[0]
-    benchmark_latency(model, sample_state)
+    # Determinar ruta de salida del modelo
+    output_model = distill_config.get("output_model")
+    if output_model:
+        if not os.path.isabs(output_model):
+            output_model = os.path.join(project_root, output_model)
+    else:
+        # Construir desde distill_output_dir
+        distill_output_dir_base = script_config.get("distill_output_dir")
+        distill_output_dir = build_output_path(distill_output_dir_base, log_name, "distill", default_base="data")
+        output_model = os.path.join(project_root, distill_output_dir, "final_policy_model.pkl")
     
-    # 6. Guardar Modelo Final
+    # Crear directorio si no existe
+    os.makedirs(os.path.dirname(output_model), exist_ok=True)
+    
+    # Guardar modelo
     joblib.dump(model, output_model)
-    logger.info(f"Modelo final guardado en: {output_model}")
-    logger.info("Este archivo .pkl es el que se despliega en producción.")
+    logger.info(f"Modelo guardado en: {output_model}")
 
 if __name__ == "__main__":
     main()

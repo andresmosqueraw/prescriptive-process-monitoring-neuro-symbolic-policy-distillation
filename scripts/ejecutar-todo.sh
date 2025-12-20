@@ -173,7 +173,7 @@ else:
 
 if output_dir_base:
     # Construir ruta con nombre del log: results/{log_name}/simod/
-    base_dir = '$PROJECT_ROOT'
+    # Retornar ruta RELATIVA al PROJECT_ROOT (misma lógica que build_output_path)
     output_dir_base = output_dir_base.rstrip('/')
     if os.path.isabs(output_dir_base):
         parts = output_dir_base.split(os.sep)
@@ -182,13 +182,23 @@ if output_dir_base:
             output_dir = os.sep.join(parts)
         else:
             output_dir = os.path.join(output_dir_base, log_name, 'simod')
+        # Convertir a relativa
+        try:
+            output_dir = os.path.relpath(output_dir, '$PROJECT_ROOT')
+        except ValueError:
+            # Si no se puede convertir (diferentes drives en Windows), mantener absoluta
+            pass
     else:
+        # Ruta relativa: "results/simod" -> "results/{log_name}/simod"
         parts = output_dir_base.split('/')
         if len(parts) >= 2:
-            base_dir_name = parts[0]
-            output_dir = os.path.join(base_dir, base_dir_name, log_name, 'simod')
+            base_dir_name = parts[0]  # "results"
+            output_dir = os.path.join(base_dir_name, log_name, 'simod')
+        elif len(parts) == 1:
+            # Solo "simod" -> "{log_name}/simod"
+            output_dir = os.path.join(log_name, 'simod')
         else:
-            output_dir = os.path.join(base_dir, log_name, 'simod')
+            output_dir = os.path.join(log_name, 'simod')
     print(output_dir)
 else:
     print('data/generado-simod')
@@ -224,7 +234,7 @@ else:
 
 if state_output_dir_base:
     # Construir ruta con nombre del log: results/{log_name}/state/
-    base_dir = '$PROJECT_ROOT'
+    # Retornar ruta RELATIVA al PROJECT_ROOT (misma lógica que build_output_path)
     state_output_dir_base = state_output_dir_base.rstrip('/')
     if os.path.isabs(state_output_dir_base):
         parts = state_output_dir_base.split(os.sep)
@@ -233,13 +243,21 @@ if state_output_dir_base:
             state_output_dir = os.sep.join(parts)
         else:
             state_output_dir = os.path.join(state_output_dir_base, log_name, 'state')
+        # Convertir a relativa
+        try:
+            state_output_dir = os.path.relpath(state_output_dir, '$PROJECT_ROOT')
+        except ValueError:
+            pass
     else:
+        # Ruta relativa: "results/state" -> "results/{log_name}/state"
         parts = state_output_dir_base.split('/')
         if len(parts) >= 2:
-            base_dir_name = parts[0]
-            state_output_dir = os.path.join(base_dir, base_dir_name, log_name, 'state')
+            base_dir_name = parts[0]  # "results"
+            state_output_dir = os.path.join(base_dir_name, log_name, 'state')
+        elif len(parts) == 1:
+            state_output_dir = os.path.join(log_name, 'state')
         else:
-            state_output_dir = os.path.join(base_dir, log_name, 'state')
+            state_output_dir = os.path.join(log_name, 'state')
     print(state_output_dir)
 else:
     print('data/generado-state')
@@ -277,13 +295,16 @@ else:
 
 # Preferir input_csv de distill_config, luego construir desde rl_output_dir_base
 if input_csv:
-    if not os.path.isabs(input_csv):
-        base_dir = '$PROJECT_ROOT'
-        input_csv = os.path.join(base_dir, input_csv)
+    # Si es absoluta, convertir a relativa al PROJECT_ROOT
+    if os.path.isabs(input_csv):
+        try:
+            input_csv = os.path.relpath(input_csv, '$PROJECT_ROOT')
+        except ValueError:
+            pass
     print(input_csv)
 elif rl_output_dir_base:
     # Construir ruta con nombre del log: results/{log_name}/rl/experience_buffer.csv
-    base_dir = '$PROJECT_ROOT'
+    # Retornar ruta RELATIVA al PROJECT_ROOT (misma lógica que build_output_path)
     rl_output_dir_base = rl_output_dir_base.rstrip('/')
     if os.path.isabs(rl_output_dir_base):
         parts = rl_output_dir_base.split(os.sep)
@@ -292,13 +313,21 @@ elif rl_output_dir_base:
             rl_output_dir = os.sep.join(parts)
         else:
             rl_output_dir = os.path.join(rl_output_dir_base, log_name, 'rl')
+        # Convertir a relativa
+        try:
+            rl_output_dir = os.path.relpath(rl_output_dir, '$PROJECT_ROOT')
+        except ValueError:
+            pass
     else:
+        # Ruta relativa: "results/rl" -> "results/{log_name}/rl"
         parts = rl_output_dir_base.split('/')
         if len(parts) >= 2:
-            base_dir_name = parts[0]
-            rl_output_dir = os.path.join(base_dir, base_dir_name, log_name, 'rl')
+            base_dir_name = parts[0]  # "results"
+            rl_output_dir = os.path.join(base_dir_name, log_name, 'rl')
+        elif len(parts) == 1:
+            rl_output_dir = os.path.join(log_name, 'rl')
         else:
-            rl_output_dir = os.path.join(base_dir, log_name, 'rl')
+            rl_output_dir = os.path.join(log_name, 'rl')
     print(os.path.join(rl_output_dir, 'experience_buffer.csv'))
 else:
     print('data/generado-rl-train/experience_buffer.csv')
@@ -335,13 +364,16 @@ else:
     log_name = 'default'
 
 if output_model:
-    if not os.path.isabs(output_model):
-        base_dir = '$PROJECT_ROOT'
-        output_model = os.path.join(base_dir, output_model)
+    # Si es absoluta, convertir a relativa al PROJECT_ROOT
+    if os.path.isabs(output_model):
+        try:
+            output_model = os.path.relpath(output_model, '$PROJECT_ROOT')
+        except ValueError:
+            pass  # Si no se puede convertir, mantener absoluta
     print(output_model)
 elif distill_output_dir_base:
     # Construir ruta con nombre del log: results/{log_name}/distill/final_policy_model.pkl
-    base_dir = '$PROJECT_ROOT'
+    # Retornar ruta RELATIVA al PROJECT_ROOT (el bash la convertirá a absoluta)
     distill_output_dir_base = distill_output_dir_base.rstrip('/')
     if os.path.isabs(distill_output_dir_base):
         parts = distill_output_dir_base.split(os.sep)
@@ -350,13 +382,18 @@ elif distill_output_dir_base:
             distill_output_dir = os.sep.join(parts)
         else:
             distill_output_dir = os.path.join(distill_output_dir_base, log_name, 'distill')
+        # Convertir a relativa si es posible
+        try:
+            distill_output_dir = os.path.relpath(distill_output_dir, '$PROJECT_ROOT')
+        except ValueError:
+            pass
     else:
         parts = distill_output_dir_base.split('/')
         if len(parts) >= 2:
             base_dir_name = parts[0]
-            distill_output_dir = os.path.join(base_dir, base_dir_name, log_name, 'distill')
+            distill_output_dir = os.path.join(base_dir_name, log_name, 'distill')
         else:
-            distill_output_dir = os.path.join(base_dir, log_name, 'distill')
+            distill_output_dir = os.path.join(log_name, 'distill')
     print(os.path.join(distill_output_dir, 'final_policy_model.pkl'))
 else:
     print('data/final_policy_model.pkl')

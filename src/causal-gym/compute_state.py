@@ -236,22 +236,46 @@ def compute_state(config: Optional[Dict[str, Any]] = None) -> Optional[List[str]
     if column_mapping is None:
         column_mapping = log_config.get("column_mapping")
     
-    # Convertir column_mapping a formato para pandas (csv_name -> standard_name)
+    # Construir mapeo de columnas para JSON (para ongoing-bps-state-short-term)
+    # La librería espera un mapeo: {nombre_columna_csv: nombre_estándar}
+    # Por ejemplo: {"case:concept:name": "CaseId", "concept:name": "Activity", ...}
     if column_mapping and isinstance(column_mapping, dict):
-        csv_to_standard = {
-            column_mapping.get("case", "caseid"): "CaseId",
-            column_mapping.get("activity", "task"): "Activity",
-            column_mapping.get("resource", "user"): "Resource",
-            column_mapping.get("start_time", "start_timestamp"): "StartTime",
-            column_mapping.get("end_time", "end_timestamp"): "EndTime"
+        # Convertir el mapeo del config.yaml al formato que espera la librería
+        # config.yaml tiene: {case: "case:concept:name", activity: "concept:name", ...}
+        # La librería espera: {"case:concept:name": "CaseId", "concept:name": "Activity", ...}
+        standard_mapping = {
+            'case': 'CaseId',
+            'activity': 'Activity',
+            'resource': 'Resource',
+            'start_time': 'StartTime',
+            'end_time': 'EndTime'
         }
-        column_mapping_json = json.dumps(csv_to_standard)
-    elif column_mapping is None:
-        csv_to_standard = {}
-        column_mapping_json = None
+        
+        csv_to_standard_for_lib = {}
+        for config_key, standard_name in standard_mapping.items():
+            if config_key in column_mapping:
+                csv_col_name = column_mapping[config_key]
+                # Si start_time y end_time apuntan a la misma columna, mapear solo a EndTime
+                # La librería creará StartTime desde EndTime si es necesario
+                if config_key == 'start_time' and csv_col_name == column_mapping.get('end_time'):
+                    # Ambos apuntan a la misma columna, mapear solo a EndTime
+                    csv_to_standard_for_lib[csv_col_name] = 'EndTime'
+                elif config_key == 'end_time' and csv_col_name == column_mapping.get('start_time'):
+                    # Ya se mapeó arriba como EndTime, saltar
+                    continue
+                else:
+                    csv_to_standard_for_lib[csv_col_name] = standard_name
+        
+        # Si start_time y end_time apuntan a la misma columna, necesitamos mapear también a StartTime
+        # Pero la librería solo puede mapear una columna a un nombre estándar, así que mapeamos a EndTime
+        # y la librería debería manejar StartTime internamente
+        # Sin embargo, si la librería requiere StartTime explícitamente, necesitamos duplicar la columna
+        # Por ahora, mapeamos solo a EndTime y confiamos en que la librería maneje StartTime
+        
+        column_mapping_json = json.dumps(csv_to_standard_for_lib)
+        logger.info(f"Mapeo de columnas para librería: {column_mapping_json}")
     else:
-        csv_to_standard = {}
-        column_mapping_json = column_mapping
+        column_mapping_json = None
     
     # Leer el log para calcular puntos de corte
     logger.info("Leyendo log de eventos para calcular puntos de corte...")
@@ -306,9 +330,63 @@ def compute_state(config: Optional[Dict[str, Any]] = None) -> Optional[List[str]
         # Leer archivo CSV
         log_df = pd.read_csv(log_path)
         
-        # Aplicar mapeo de columnas solo para CSV
+        # Construir mapeo de columnas desde config.yaml a nombres estándar
+        # Mapeo esperado: case -> CaseId, activity -> Activity, resource -> Resource,
+        #                 start_time -> StartTime, end_time -> EndTime
+        csv_to_standard = {}
+        start_time_col = None
+        end_time_col = None
+        
+        if column_mapping:
+            # Mapear nombres del config a nombres estándar
+            standard_mapping = {
+                'case': 'CaseId',
+                'activity': 'Activity',
+                'resource': 'Resource',
+                'start_time': 'StartTime',
+                'end_time': 'EndTime'
+            }
+            
+            for config_key, standard_name in standard_mapping.items():
+                if config_key in column_mapping:
+                    csv_col_name = column_mapping[config_key]
+                    if csv_col_name in log_df.columns:
+                        # Guardar referencias a las columnas de tiempo
+                        if config_key == 'start_time':
+                            start_time_col = csv_col_name
+                        elif config_key == 'end_time':
+                            end_time_col = csv_col_name
+                        
+                        # Si start_time y end_time apuntan a la misma columna,
+                        # solo mapear a EndTime y luego crear StartTime desde EndTime
+                        if config_key == 'start_time' and csv_col_name == column_mapping.get('end_time'):
+                            # Ambos apuntan a la misma columna, mapear solo a EndTime
+                            csv_to_standard[csv_col_name] = 'EndTime'
+                            logger.debug(f"Mapeando columna CSV '{csv_col_name}' -> 'EndTime' (start_time y end_time son iguales)")
+                        elif config_key == 'end_time' and csv_col_name == column_mapping.get('start_time'):
+                            # Ya se mapeó arriba, saltar
+                            continue
+                        else:
+                            csv_to_standard[csv_col_name] = standard_name
+                            logger.debug(f"Mapeando columna CSV '{csv_col_name}' -> '{standard_name}'")
+        
+        # Aplicar mapeo de columnas
         if csv_to_standard:
             log_df = log_df.rename(columns=csv_to_standard)
+            logger.info(f"Columnas mapeadas: {list(csv_to_standard.keys())} -> {list(csv_to_standard.values())}")
+        
+        # Si StartTime y EndTime apuntan a la misma columna, crear StartTime desde EndTime
+        if 'StartTime' not in log_df.columns and 'EndTime' in log_df.columns:
+            log_df['StartTime'] = log_df['EndTime'].copy()
+            logger.info("StartTime creado desde EndTime (mismo timestamp)")
+        
+        # Verificar que StartTime y EndTime existan después del mapeo
+        if 'StartTime' not in log_df.columns:
+            logger.error(f"Columna 'StartTime' no encontrada después del mapeo. Columnas disponibles: {list(log_df.columns)}")
+            raise ValueError("Columna 'StartTime' no encontrada. Verifica el mapeo de columnas en config.yaml")
+        if 'EndTime' not in log_df.columns:
+            logger.error(f"Columna 'EndTime' no encontrada después del mapeo. Columnas disponibles: {list(log_df.columns)}")
+            raise ValueError("Columna 'EndTime' no encontrada. Verifica el mapeo de columnas en config.yaml")
     
     # Convertir timestamps
     log_df['StartTime'] = pd.to_datetime(log_df['StartTime'], utc=True)
@@ -343,7 +421,43 @@ def compute_state(config: Optional[Dict[str, Any]] = None) -> Optional[List[str]
     
     generated_files = []
     
+    # Crear un CSV temporal con columnas renombradas si es necesario
+    # Esto es necesario porque la librería requiere StartTime y EndTime explícitos
+    temp_log_path = None
     try:
+        # Si start_time y end_time apuntan a la misma columna, crear CSV temporal
+        if column_mapping and column_mapping.get('start_time') == column_mapping.get('end_time'):
+            logger.info("Creando CSV temporal con columnas renombradas (start_time y end_time son iguales)...")
+            import tempfile
+            import shutil
+            
+            # Leer el CSV original
+            temp_log_df = pd.read_csv(log_path)
+            
+            # Aplicar el mapeo de columnas
+            if csv_to_standard:
+                temp_log_df = temp_log_df.rename(columns=csv_to_standard)
+            
+            # Crear StartTime desde EndTime si no existe
+            if 'StartTime' not in temp_log_df.columns and 'EndTime' in temp_log_df.columns:
+                temp_log_df['StartTime'] = temp_log_df['EndTime'].copy()
+            
+            # Guardar CSV temporal
+            temp_log_file = tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False)
+            temp_log_path = temp_log_file.name
+            temp_log_df.to_csv(temp_log_path, index=False)
+            temp_log_file.close()
+            
+            logger.info(f"CSV temporal creado: {temp_log_path}")
+            logger.info(f"Columnas en CSV temporal: {list(temp_log_df.columns)}")
+            
+            # No pasar column_mapping a la librería ya que las columnas ya están renombradas
+            column_mapping_for_lib = None
+            event_log_to_use = temp_log_path
+        else:
+            event_log_to_use = log_path
+            column_mapping_for_lib = column_mapping_json
+        
         # Procesar cada punto de corte
         for i, cut_point in enumerate(cut_points, 1):
             logger.info(f"{'='*80}")
@@ -355,11 +469,11 @@ def compute_state(config: Optional[Dict[str, Any]] = None) -> Optional[List[str]
             
             # Calcular estado (sin simulación)
             result = run_process_state_and_simulation(
-                event_log=log_path,
+                event_log=event_log_to_use,
                 bpmn_model=bpmn_path,
                 bpmn_parameters=json_path,
                 start_time=start_time_str,
-                column_mapping=column_mapping_json,
+                column_mapping=column_mapping_for_lib,
                 simulate=False,  # Solo calcular estado
                 total_cases=ongoing_config.get("total_cases", 20)
             )
@@ -397,6 +511,14 @@ def compute_state(config: Optional[Dict[str, Any]] = None) -> Optional[List[str]
         logger.error(f"Error: {e}", exc_info=True)
         return None
     finally:
+        # Limpiar archivo temporal si se creó
+        if temp_log_path and os.path.exists(temp_log_path):
+            try:
+                os.unlink(temp_log_path)
+                logger.debug(f"Archivo temporal eliminado: {temp_log_path}")
+            except Exception as e:
+                logger.warning(f"No se pudo eliminar archivo temporal {temp_log_path}: {e}")
+        
         # Restaurar directorio original
         os.chdir(original_cwd)
 
