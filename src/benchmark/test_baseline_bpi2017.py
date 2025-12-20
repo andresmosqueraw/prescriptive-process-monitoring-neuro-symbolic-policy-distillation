@@ -23,7 +23,7 @@ from sklearn.preprocessing import StandardScaler
 
 from benchmark_evaluator import BenchmarkEvaluator
 from utils.config import load_config
-from utils.logging import setup_logger
+from utils.logger_utils import setup_logger
 
 # Configurar logger
 logger = setup_logger(__name__)

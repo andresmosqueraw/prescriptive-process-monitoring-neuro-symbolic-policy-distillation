@@ -21,7 +21,7 @@ project_root = os.path.dirname(src_dir)                 # root
 if src_dir not in sys.path: sys.path.insert(0, src_dir)
 
 from utils.config import load_config
-from utils.logging import setup_logger
+from utils.logger_utils import setup_logger
 from benchmark_evaluator import BenchmarkEvaluator
 from test_baseline_bpi2017 import load_bpi2017_data, estimate_propensity_score, prepare_baseline_dataframe
 

@@ -16,7 +16,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.metrics import accuracy_score
 
 from utils.config import load_config, get_log_name_from_path, build_output_path
-from utils.logging import setup_logger
+from utils.logger_utils import setup_logger
 
 logger = setup_logger(__name__)
 

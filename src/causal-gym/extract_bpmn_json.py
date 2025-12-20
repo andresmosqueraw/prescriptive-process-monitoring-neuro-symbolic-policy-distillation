@@ -19,7 +19,7 @@ from typing import Dict, Any, Optional, Tuple
 from datetime import datetime
 
 from utils.config import load_config, get_log_name_from_path, build_output_path
-from utils.logging import setup_logger
+from utils.logger_utils import setup_logger
 
 # Configurar logger
 logger = setup_logger(__name__)
@@ -613,14 +613,26 @@ def extract_bpmn_json(
                 log_path_for_simod = xes_path
                 simod_log_name = f"{log_name}.xes"
         else:
-            # CSV: Preprocesar si es necesario (crear start_time si solo hay time:timestamp)
+            # CSV: Preprocesar si es necesario (limpiar espacios en blanco y crear start_time si solo hay time:timestamp)
             column_mapping = log_config.get("column_mapping", {})
             start_time_col = column_mapping.get("start_time", "")
             end_time_col = column_mapping.get("end_time", "")
             
-            # Si start_time y end_time apuntan al mismo campo, crear una copia
+            # Determinar si necesita preprocesamiento
+            needs_preprocessing = False
+            preprocess_reasons = []
+            
+            # Verificar si start_time y end_time apuntan al mismo campo
             if start_time_col == end_time_col and start_time_col:
-                logger.info(f"🔧 Preprocesando CSV: creando columna start_time desde {start_time_col}")
+                needs_preprocessing = True
+                preprocess_reasons.append(f"crear columna start_time desde {start_time_col}")
+            
+            # Siempre limpiar espacios en blanco para evitar KeyError en Simod (ej: 'W_Shortened completion ' con espacio)
+            needs_preprocessing = True
+            preprocess_reasons.append("limpiar espacios en blanco de columnas de texto")
+            
+            if needs_preprocessing:
+                logger.info(f"🔧 Preprocesando CSV: {', '.join(preprocess_reasons)}")
                 import pandas as pd
                 logger.info(f"   Leyendo CSV: {os.path.basename(log_path)}")
                 start_time = time.time()
@@ -628,21 +640,39 @@ def extract_bpmn_json(
                 read_time = time.time() - start_time
                 logger.info(f"   CSV leído: {len(df):,} filas, {read_time:.2f}s")
                 
+                # Limpiar espacios en blanco de columnas de texto relevantes
+                text_columns = ['concept:name', 'org:resource', 'case:concept:name']
+                for col in text_columns:
+                    if col in df.columns:
+                        # Contar valores con espacios antes de limpiar
+                        trailing_count = (df[col].astype(str).str.endswith(' ').sum())
+                        leading_count = (df[col].astype(str).str.startswith(' ').sum())
+                        # Limpiar espacios al inicio y al final
+                        df[col] = df[col].astype(str).str.strip()
+                        total_cleaned = trailing_count + leading_count
+                        if total_cleaned > 0:
+                            logger.info(f"   Limpiados espacios en '{col}': {total_cleaned} valores corregidos")
+                
                 # Crear start_time si no existe y es igual a end_time
                 if start_time_col in df.columns and 'start_time' not in df.columns:
                     # Crear una nueva columna start_time con el mismo valor que time:timestamp
                     df['start_time'] = df[start_time_col].copy()
-                    # Guardar CSV preprocesado
-                    preprocessed_csv = os.path.join(temp_input_dir, f"{log_name}_preprocessed.csv")
-                    logger.info(f"   Guardando CSV preprocesado...")
-                    df.to_csv(preprocessed_csv, index=False)
-                    log_path = preprocessed_csv
-                    # Actualizar el mapeo para que Simod use la nueva columna start_time
+                
+                # Guardar CSV preprocesado
+                preprocessed_csv = os.path.join(temp_input_dir, f"{log_name}_preprocessed.csv")
+                logger.info(f"   Guardando CSV preprocesado...")
+                df.to_csv(preprocessed_csv, index=False)
+                log_path = preprocessed_csv
+                
+                # Actualizar el mapeo para que Simod use la nueva columna start_time
+                if start_time_col == end_time_col and start_time_col:
                     log_config = log_config.copy()
                     log_config['column_mapping'] = column_mapping.copy()
                     log_config['column_mapping']['start_time'] = 'start_time'
-                    csv_size = os.path.getsize(preprocessed_csv) / (1024 * 1024)  # MB
-                    logger.info(f"✅ CSV preprocesado guardado: {os.path.basename(preprocessed_csv)} ({csv_size:.2f} MB)")
+                
+                csv_size = os.path.getsize(preprocessed_csv) / (1024 * 1024)  # MB
+                logger.info(f"✅ CSV preprocesado guardado: {os.path.basename(preprocessed_csv)} ({csv_size:.2f} MB)")
+                if start_time_col == end_time_col:
                     logger.info(f"   Mapeo actualizado: start_time ahora apunta a columna 'start_time'")
             
             # Comprimir a CSV.GZ

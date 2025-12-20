@@ -22,7 +22,7 @@ src_dir = os.path.dirname(script_dir)  # src/
 if src_dir not in sys.path:
     sys.path.insert(0, src_dir)
 
-from utils.logging import setup_logger
+from utils.logger_utils import setup_logger
 from utils.config import load_config
 
 # Configurar logger

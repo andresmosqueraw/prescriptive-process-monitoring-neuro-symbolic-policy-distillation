@@ -19,8 +19,10 @@ logger = logging.getLogger(__name__)
 
 # Agregar src/ al PYTHONPATH
 script_dir = os.path.dirname(os.path.abspath(__file__))
-project_root = os.path.dirname(script_dir)
-src_dir = os.path.join(project_root, "src")
+# script_dir = src/utils/
+src_dir = os.path.dirname(script_dir)  # src/
+project_root = os.path.dirname(src_dir)  # proyecto raíz
+# Agregar src/ al path para importar utils
 if src_dir not in sys.path:
     sys.path.insert(0, src_dir)
 
