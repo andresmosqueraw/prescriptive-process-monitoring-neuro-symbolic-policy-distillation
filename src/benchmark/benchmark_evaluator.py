@@ -10,6 +10,7 @@ Calcula métricas de rendimiento para comparar diferentes algoritmos
 import os
 import sys
 import time
+import yaml
 import pandas as pd
 import numpy as np
 from typing import Dict, Any, Optional, List, Tuple
@@ -27,10 +28,58 @@ from utils.config import load_config
 # Configurar logger
 logger = setup_logger(__name__)
 
-# Constantes del Negocio (BPI 2017)
+# Constantes del Negocio (BPI 2017) - Valores por defecto
 REWARD_SUCCESS = 100.0  # Ganancia si el préstamo fue aceptado
 COST_INTERVENTION = 20.0  # Costo si se llama (intervención)
 COST_TIME_DAY = 1.0  # Costo por día de duración
+
+
+def load_benchmark_config(config_path: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """
+    Carga la configuración del benchmark desde benchmark_config.yaml.
+    
+    Args:
+        config_path: Ruta al archivo de configuración. Si es None, busca configs/benchmark_config.yaml
+                    relativo al directorio del proyecto.
+    
+    Returns:
+        Diccionario con la configuración cargada, o None si hay error.
+    """
+    if config_path is None:
+        # Determinar directorio base del proyecto
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        # script_dir = src/benchmark/
+        src_dir = os.path.dirname(script_dir)  # src/
+        project_root = os.path.dirname(src_dir)  # proyecto raíz
+        config_path = os.path.join(project_root, "configs", "benchmark_config.yaml")
+    
+    if not os.path.exists(config_path):
+        return None
+    
+    try:
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config = yaml.safe_load(f)
+        return config
+    except Exception as e:
+        logger.warning(f"Error cargando configuración del benchmark: {e}")
+        return None
+
+
+def get_default_constants() -> Tuple[float, float, float]:
+    """
+    Obtiene las constantes del negocio desde benchmark_config.yaml o usa valores por defecto.
+    
+    Returns:
+        Tupla (reward_success, cost_intervention, cost_time_day)
+    """
+    benchmark_config = load_benchmark_config()
+    if benchmark_config:
+        evaluator_config = benchmark_config.get("evaluator", {})
+        reward = evaluator_config.get("reward_success", REWARD_SUCCESS)
+        cost_int = evaluator_config.get("cost_intervention", COST_INTERVENTION)
+        cost_time = evaluator_config.get("cost_time_day", COST_TIME_DAY)
+        return reward, cost_int, cost_time
+    return REWARD_SUCCESS, COST_INTERVENTION, COST_TIME_DAY
 
 
 class BenchmarkEvaluator:
@@ -49,21 +98,30 @@ class BenchmarkEvaluator:
     
     def __init__(
         self,
-        reward_success: float = REWARD_SUCCESS,
-        cost_intervention: float = COST_INTERVENTION,
-        cost_time_day: float = COST_TIME_DAY
+        reward_success: Optional[float] = None,
+        cost_intervention: Optional[float] = None,
+        cost_time_day: Optional[float] = None
     ):
         """
         Inicializa el evaluador.
         
+        Si los parámetros son None, intenta cargarlos desde benchmark_config.yaml.
+        Si no están disponibles en el config, usa valores por defecto.
+        
         Args:
-            reward_success: Ganancia si el outcome es exitoso
-            cost_intervention: Costo de una intervención
-            cost_time_day: Costo por día de duración
+            reward_success: Ganancia si el outcome es exitoso (None = cargar desde config)
+            cost_intervention: Costo de una intervención (None = cargar desde config)
+            cost_time_day: Costo por día de duración (None = cargar desde config)
         """
-        self.reward_success = reward_success
-        self.cost_intervention = cost_intervention
-        self.cost_time_day = cost_time_day
+        # Cargar constantes desde config o usar valores por defecto
+        default_reward, default_cost_int, default_cost_time = get_default_constants()
+        
+        self.reward_success = reward_success if reward_success is not None else default_reward
+        self.cost_intervention = cost_intervention if cost_intervention is not None else default_cost_int
+        self.cost_time_day = cost_time_day if cost_time_day is not None else default_cost_time
+        
+        logger.debug(f"BenchmarkEvaluator inicializado con: reward={self.reward_success}, "
+                    f"cost_intervention={self.cost_intervention}, cost_time_day={self.cost_time_day}")
     
     def check_safety(self, case_row: pd.Series) -> bool:
         """

@@ -1,0 +1,60 @@
+# Configuración para Benchmark Evaluator
+# Este archivo contiene las configuraciones específicas para evaluar benchmarks
+# de Prescriptive Process Monitoring sobre el dataset BPI Challenge 2017.
+
+# Rutas a los logs que se evaluarán
+logs:
+  # Log completo de BPI 2017
+  full_log:
+    csv_path: logs/BPI2017/bpi-challenge-2017.csv
+    description: "Log completo de BPI Challenge 2017 (todos los casos)"
+  
+  # Log sample de BPI 2017 (para pruebas rápidas)
+  sample_log:
+    csv_path: logs/BPI2017/bpi-challenge-2017-sample.csv
+    description: "Muestra del log de BPI Challenge 2017 (para pruebas rápidas)"
+
+# Configuración del evaluador
+evaluator:
+  # Constantes del negocio (BPI 2017)
+  reward_success: 100.0      # Ganancia si el préstamo fue aceptado
+  cost_intervention: 20.0    # Costo si se llama (intervención)
+  cost_time_day: 1.0         # Costo por día de duración
+  
+  # Configuración de métricas
+  metrics:
+    # Si calcular AUC-Qini (requiere uplift scores)
+    calculate_auc_qini: true
+    
+    # Si calcular latencia (requiere medición de tiempo)
+    calculate_latency: false
+
+# Configuración de salida
+output:
+  # Directorio base donde se guardarán los resultados
+  base_dir: results/benchmark
+  
+  # Formato de nombres de archivos de salida
+  metrics_filename: baseline_metrics.csv
+
+# Configuración de procesamiento
+processing:
+  # Si procesar ambos logs (full y sample) o solo uno
+  process_both_logs: true
+  
+  # Si mostrar progreso detallado
+  verbose: true
+
+# Configuración de propensity score estimation
+propensity_score:
+  # Features a usar para estimar propensity score
+  features:
+    - num_events
+    - duration_days
+  
+  # Clipping de propensity scores (min, max)
+  clip_min: 0.05
+  clip_max: 0.95
+  
+  # Random state para reproducibilidad
+  random_state: 42

@@ -7,9 +7,10 @@ Calcula las métricas del baseline (Business As Usual).
 
 import os
 import sys
+import yaml
 import pandas as pd
 import numpy as np
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 # Agregar src/ al PYTHONPATH para encontrar utils
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -242,44 +243,32 @@ def prepare_baseline_dataframe(df_events: pd.DataFrame) -> pd.DataFrame:
     return df_result
 
 
-def main() -> None:
-    """Función principal"""
+def process_baseline_for_log(csv_path: str, log_name: str, project_root: str) -> None:
+    """
+    Procesa el baseline para un log específico y guarda los resultados.
+    
+    Args:
+        csv_path: Ruta absoluta al archivo CSV del log
+        log_name: Nombre del log (sin extensión) para crear la carpeta de salida
+        project_root: Directorio raíz del proyecto
+    """
+    logger.info("")
     logger.info("=" * 80)
-    logger.info("TEST BASELINE - BPI CHALLENGE 2017")
+    logger.info(f"PROCESANDO BASELINE: {log_name}")
     logger.info("=" * 80)
-    
-    # Cargar configuración
-    config = load_config()
-    if config is None:
-        logger.error("No se pudo cargar la configuración")
-        sys.exit(1)
-    
-    # Obtener rutas
-    log_config = config.get("log_config", {})
-    bpi2017_config = log_config.get("bpi2017", {})
-    
-    # Encontrar el directorio raíz del proyecto
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    # script_dir = src/benchmark/
-    src_dir = os.path.dirname(script_dir)  # src/
-    project_root = os.path.dirname(src_dir)  # proyecto raíz
-    
-    csv_path = bpi2017_config.get("csv_path", "logs/BPI2017/bpi-challenge-2017.csv")
-    if not os.path.isabs(csv_path):
-        csv_path = os.path.join(project_root, csv_path)
+    logger.info(f"Archivo: {csv_path}")
     
     # Preparar DataFrame
     try:
         df_events = load_bpi2017_data(csv_path)
         df_results = prepare_baseline_dataframe(df_events)
     except Exception as e:
-        logger.error(f"Error: {e}")
-        sys.exit(1)
+        logger.error(f"Error procesando {log_name}: {e}")
+        return
     
-    # Crear evaluador
+    # Crear evaluador (puede usar configuración personalizada si está disponible)
+    # Por ahora usamos valores por defecto, pero se puede extender para leer de benchmark_config
     evaluator = BenchmarkEvaluator()
-    
-    # --- CAMBIO CRÍTICO AQUÍ ---
     
     # 1. Calcular métricas estándar (IPW, etc)
     results = evaluator.evaluate(
@@ -297,15 +286,12 @@ def main() -> None:
     results['net_gain'] = historical_gain
     results['lift_vs_bau'] = 0.0  # Por definición, el baseline tiene 0% lift contra sí mismo
     
-    # ---------------------------
-    
     # Mostrar resultados formateados
     logger.info("")
     logger.info("=" * 80)
-    logger.info("RESULTADOS BASELINE OFICIALES (GROUND TRUTH)")
+    logger.info(f"RESULTADOS BASELINE OFICIALES (GROUND TRUTH) - {log_name}")
     logger.info("=" * 80)
     logger.info("")
-    # Fíjate que ahora usamos el valor sobreescrito
     logger.info("💰 Net Gain ($):        ${:.2f}".format(results['net_gain'])) 
     logger.info("📈 Lift vs BAU (%):     {:.2f}%".format(results['lift_vs_bau']))
     logger.info("📉 % Intervenciones:    {:.2f}%".format(results.get('intervention_percentage', 0)))
@@ -320,10 +306,156 @@ def main() -> None:
     # Crear DF manual para asegurar que se guardan los valores corregidos
     results_df = pd.DataFrame([results])
     
-    output_path = os.path.join(project_root, "results", "baseline_bpi2017_metrics.csv")
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    # Guardar en carpeta específica del log
+    # Intentar leer configuración de salida del benchmark, sino usar por defecto
+    benchmark_config = load_benchmark_config()
+    if benchmark_config:
+        output_config = benchmark_config.get("output", {})
+        base_dir = output_config.get("base_dir", "results/benchmark")
+        metrics_filename = output_config.get("metrics_filename", "baseline_metrics.csv")
+    else:
+        base_dir = "results/benchmark"
+        metrics_filename = "baseline_metrics.csv"
+    
+    if not os.path.isabs(base_dir):
+        base_dir = os.path.join(project_root, base_dir)
+    
+    output_dir = os.path.join(base_dir, log_name)
+    os.makedirs(output_dir, exist_ok=True)
+    
+    output_path = os.path.join(output_dir, metrics_filename)
     results_df.to_csv(output_path, index=False)
-    logger.info(f"Resultados guardados en: {output_path}")
+    logger.info(f"✅ Resultados guardados en: {output_path}")
+
+
+def load_benchmark_config(config_path: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """
+    Carga la configuración del benchmark desde benchmark_config.yaml.
+    
+    Args:
+        config_path: Ruta al archivo de configuración. Si es None, busca configs/benchmark_config.yaml
+                    relativo al directorio del proyecto.
+    
+    Returns:
+        Diccionario con la configuración cargada, o None si hay error.
+    """
+    if config_path is None:
+        # Determinar directorio base del proyecto
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        # script_dir = src/benchmark/
+        src_dir = os.path.dirname(script_dir)  # src/
+        project_root = os.path.dirname(src_dir)  # proyecto raíz
+        config_path = os.path.join(project_root, "configs", "benchmark_config.yaml")
+    
+    if not os.path.exists(config_path):
+        logger.warning(f"No se encontró {config_path}, usando configuración por defecto")
+        return None
+    
+    try:
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config = yaml.safe_load(f)
+        return config
+    except Exception as e:
+        logger.error(f"Error cargando configuración del benchmark: {e}")
+        return None
+
+
+def main() -> None:
+    """Función principal - Procesa ambos logs (completo y sample)"""
+    logger.info("=" * 80)
+    logger.info("TEST BASELINE - BPI CHALLENGE 2017")
+    logger.info("Procesando log completo y sample")
+    logger.info("=" * 80)
+    
+    # Encontrar el directorio raíz del proyecto
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    # script_dir = src/benchmark/
+    src_dir = os.path.dirname(script_dir)  # src/
+    project_root = os.path.dirname(src_dir)  # proyecto raíz
+    
+    # Cargar configuración del benchmark
+    benchmark_config = load_benchmark_config()
+    
+    # Si no hay config del benchmark, intentar cargar la config principal como fallback
+    if benchmark_config is None:
+        logger.info("Intentando cargar configuración principal como fallback...")
+        config = load_config()
+        if config is None:
+            logger.error("No se pudo cargar ninguna configuración")
+            sys.exit(1)
+        # Usar la lógica anterior como fallback
+        log_config = config.get("log_config", {})
+        bpi2017_config = log_config.get("bpi2017", {})
+        
+        logs_to_process = []
+        csv_path_full = bpi2017_config.get("csv_path")
+        if csv_path_full:
+            if not os.path.isabs(csv_path_full):
+                csv_path_full = os.path.join(project_root, csv_path_full)
+            logs_to_process.append(csv_path_full)
+        
+        log_path = log_config.get("log_path")
+        if log_path:
+            if not os.path.isabs(log_path):
+                log_path = os.path.join(project_root, log_path)
+            if log_path != csv_path_full and log_path.endswith('.csv'):
+                logs_to_process.append(log_path)
+    else:
+        # Usar configuración del benchmark
+        logs_config = benchmark_config.get("logs", {})
+        processing_config = benchmark_config.get("processing", {})
+        process_both = processing_config.get("process_both_logs", True)
+        
+        logs_to_process = []
+        
+        # Log completo
+        if process_both or not logs_config.get("sample_log"):
+            full_log_config = logs_config.get("full_log", {})
+            csv_path_full = full_log_config.get("csv_path")
+            if csv_path_full:
+                if not os.path.isabs(csv_path_full):
+                    csv_path_full = os.path.join(project_root, csv_path_full)
+                logs_to_process.append(csv_path_full)
+                logger.info(f"📋 Log completo: {csv_path_full}")
+        
+        # Log sample
+        if process_both:
+            sample_log_config = logs_config.get("sample_log", {})
+            csv_path_sample = sample_log_config.get("csv_path")
+            if csv_path_sample:
+                if not os.path.isabs(csv_path_sample):
+                    csv_path_sample = os.path.join(project_root, csv_path_sample)
+                if csv_path_sample not in logs_to_process:
+                    logs_to_process.append(csv_path_sample)
+                    logger.info(f"📋 Log sample: {csv_path_sample}")
+    
+    # Si no se encontraron logs, usar valores por defecto
+    if not logs_to_process:
+        logger.warning("⚠️  No se encontraron rutas en la configuración, usando valores por defecto")
+        default_full = os.path.join(project_root, "logs", "BPI2017", "bpi-challenge-2017.csv")
+        default_sample = os.path.join(project_root, "logs", "BPI2017", "bpi-challenge-2017-sample.csv")
+        if os.path.exists(default_full):
+            logs_to_process.append(default_full)
+        if os.path.exists(default_sample):
+            logs_to_process.append(default_sample)
+    
+    # Procesar cada log
+    processed_count = 0
+    for csv_path in logs_to_process:
+        if os.path.exists(csv_path):
+            log_name = os.path.splitext(os.path.basename(csv_path))[0]
+            # Remover extensión adicional si es .gz
+            if log_name.endswith('.xes') or log_name.endswith('.csv'):
+                log_name = os.path.splitext(log_name)[0]
+            process_baseline_for_log(csv_path, log_name, project_root)
+            processed_count += 1
+        else:
+            logger.warning(f"⚠️  No se encontró el log: {csv_path}")
+    
+    logger.info("")
+    logger.info("=" * 80)
+    logger.info(f"✅ PROCESAMIENTO COMPLETADO ({processed_count} log(s) procesado(s))")
+    logger.info("=" * 80)
 
 
 if __name__ == "__main__":
