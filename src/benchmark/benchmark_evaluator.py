@@ -8,11 +8,18 @@ Calcula métricas de rendimiento para comparar diferentes algoritmos
 """
 
 import os
+import sys
 import time
 import pandas as pd
 import numpy as np
 from typing import Dict, Any, Optional, List, Tuple
 from sklearn.metrics import roc_auc_score
+
+# Agregar src/ al PYTHONPATH para encontrar utils
+script_dir = os.path.dirname(os.path.abspath(__file__))
+src_dir = os.path.dirname(script_dir)  # src/
+if src_dir not in sys.path:
+    sys.path.insert(0, src_dir)
 
 from utils.logging import setup_logger
 from utils.config import load_config

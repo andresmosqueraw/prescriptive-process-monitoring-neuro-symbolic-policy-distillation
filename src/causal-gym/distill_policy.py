@@ -206,18 +206,17 @@ def main() -> None:
     script_config = config.get("script_config", {})
     log_config = config.get("log_config", {})
     
-    # Obtener directorio base
+    # Encontrar el directorio raíz del proyecto
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    if os.path.basename(script_dir) == "src":
-        base_dir = os.path.dirname(script_dir)
-    else:
-        base_dir = script_dir
+    # script_dir = src/causal-gym/
+    src_dir = os.path.dirname(script_dir)  # src/
+    project_root = os.path.dirname(src_dir)  # proyecto raíz
     
     # Obtener nombre del log para construir rutas
     log_path = log_config.get("log_path")
     if log_path:
         if not os.path.isabs(log_path):
-            log_path = os.path.join(base_dir, log_path)
+            log_path = os.path.join(project_root, log_path)
         log_name = get_log_name_from_path(log_path)
     else:
         # Fallback: intentar extraer del input_csv si está configurado
@@ -243,7 +242,7 @@ def main() -> None:
     else:
         # Si es relativa, hacerla absoluta
         if not os.path.isabs(input_csv):
-            input_csv = os.path.join(base_dir, input_csv)
+            input_csv = os.path.join(project_root, input_csv)
     
     output_model = distill_config.get("output_model")
     if output_model is None:
@@ -254,7 +253,7 @@ def main() -> None:
     else:
         # Si es relativa, hacerla absoluta
         if not os.path.isabs(output_model):
-            output_model = os.path.join(base_dir, output_model)
+            output_model = os.path.join(project_root, output_model)
     
     # Crear directorio de salida si no existe
     os.makedirs(os.path.dirname(output_model), exist_ok=True)

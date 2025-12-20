@@ -409,14 +409,15 @@ def main() -> None:
         logger.info(f"Log especificado como argumento: {log_path}")
     elif log_config.get("log_path"):
         log_path = log_config.get("log_path")
-        # Si es una ruta relativa, hacerla relativa al directorio base
+        # Si es una ruta relativa, hacerla relativa al directorio base del proyecto
         if not os.path.isabs(log_path):
+            # Encontrar el directorio raíz del proyecto
+            # Este script está en src/causal-gym/, así que subimos dos niveles
             script_dir = os.path.dirname(os.path.abspath(__file__))
-            if os.path.basename(script_dir) == "src":
-                base_dir = os.path.dirname(script_dir)
-            else:
-                base_dir = script_dir
-            log_path = os.path.join(base_dir, log_path)
+            # script_dir = src/causal-gym/
+            src_dir = os.path.dirname(script_dir)  # src/
+            project_root = os.path.dirname(src_dir)  # proyecto raíz
+            log_path = os.path.join(project_root, log_path)
         logger.info(f"Log leído desde config.yaml: {log_path}")
     else:
         logger.error("No se especificó la ruta del log")

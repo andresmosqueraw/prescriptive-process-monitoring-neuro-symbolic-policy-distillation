@@ -523,13 +523,13 @@ def run_causal_gym_training(
     log_config = config.get("log_config", {})
     log_path_for_name = log_config.get("log_path")
     if log_path_for_name:
+        # Encontrar el directorio raíz del proyecto
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        if os.path.basename(script_dir) == "src":
-            base_dir = os.path.dirname(script_dir)
-        else:
-            base_dir = script_dir
+        # script_dir = src/causal-gym/
+        src_dir = os.path.dirname(script_dir)  # src/
+        project_root = os.path.dirname(src_dir)  # proyecto raíz
         if not os.path.isabs(log_path_for_name):
-            log_path_for_name = os.path.join(base_dir, log_path_for_name)
+            log_path_for_name = os.path.join(project_root, log_path_for_name)
         log_name = get_log_name_from_path(log_path_for_name)
     else:
         # Fallback: usar nombre genérico
@@ -566,12 +566,11 @@ def main() -> None:
     log_config = config.get("log_config", {})
     script_config = config.get("script_config", {})
     
-    # Obtener directorio base
+    # Encontrar el directorio raíz del proyecto
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    if os.path.basename(script_dir) == "src":
-        base_dir = os.path.dirname(script_dir)
-    else:
-        base_dir = script_dir
+    # script_dir = src/causal-gym/
+    src_dir = os.path.dirname(script_dir)  # src/
+    project_root = os.path.dirname(src_dir)  # proyecto raíz
     
     # Obtener ruta del log desde log_path
     log_path = log_config.get("log_path")
@@ -581,7 +580,7 @@ def main() -> None:
     
     # Si es relativa, hacerla absoluta
     if not os.path.isabs(log_path):
-        log_path = os.path.join(base_dir, log_path)
+        log_path = os.path.join(project_root, log_path)
     
     # Obtener nombre del log (sin extensión)
     log_name = get_log_name_from_path(log_path)
@@ -605,8 +604,8 @@ def main() -> None:
         logger.error("Ejecuta primero extract_bpmn_json.py para generar los archivos")
         sys.exit(1)
     
-    # Cambiar al directorio base
-    os.chdir(base_dir)
+    # Cambiar al directorio raíz del proyecto
+    os.chdir(project_root)
     
     # Ejecutar entrenamiento
     success = run_causal_gym_training(bpmn_file, json_file, config)

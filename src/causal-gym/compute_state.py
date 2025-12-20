@@ -181,20 +181,20 @@ def compute_state(config: Optional[Dict[str, Any]] = None) -> Optional[List[str]
     script_config = config.get("script_config", {})
     
     # Obtener ruta del log primero para extraer el nombre
+    # Encontrar el directorio raíz del proyecto
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    if os.path.basename(script_dir) == "src":
-        base_dir = os.path.dirname(script_dir)
-    else:
-        base_dir = script_dir
+    # script_dir = src/causal-gym/
+    src_dir = os.path.dirname(script_dir)  # src/
+    project_root = os.path.dirname(src_dir)  # proyecto raíz
     
     log_path = log_config.get("log_path")
     if not log_path:
         logger.error("No se especificó log_path en config.yaml")
         return None
     
-    # Si es una ruta relativa, hacerla relativa al directorio base
+    # Si es una ruta relativa, hacerla relativa al directorio raíz del proyecto
     if not os.path.isabs(log_path):
-        log_path = os.path.join(base_dir, log_path)
+        log_path = os.path.join(project_root, log_path)
     
     # Obtener nombre del log
     log_name = get_log_name_from_path(log_path)

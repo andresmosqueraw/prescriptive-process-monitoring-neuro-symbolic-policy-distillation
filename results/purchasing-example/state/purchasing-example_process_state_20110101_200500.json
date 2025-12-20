@@ -5,12 +5,12 @@
             "control_flow_state": {
                 "flows": [],
                 "activities": [
-                    "node_734884aa-b994-41ad-b89e-5eb13e73b2b2"
+                    "node_5ae1b458-51ec-4b51-acc2-bfc87fedd767"
                 ]
             },
             "ongoing_activities": [
                 {
-                    "id": "node_734884aa-b994-41ad-b89e-5eb13e73b2b2",
+                    "id": "node_5ae1b458-51ec-4b51-acc2-bfc87fedd767",
                     "label": "Create Quotation comparison Map",
                     "start_time": "2011-01-01 18:32:00+00:00",
                     "resource": "Magdalena Predutta",
@@ -24,7 +24,7 @@
         "2": {
             "control_flow_state": {
                 "flows": [
-                    "node_8779866f-a90d-4e73-a41c-50637c8d08a2"
+                    "node_a055ce35-1aa9-456d-b46b-81b4391c9121"
                 ],
                 "activities": []
             },
@@ -32,7 +32,7 @@
             "enabled_activities": [],
             "enabled_gateways": [
                 {
-                    "id": "node_7ed3375c-2faf-4be8-ba70-bd45c04f5396",
+                    "id": "node_f0cb23e4-571b-4c4d-9faa-723e9cd5127e",
                     "enabled_time": "2011-01-01 19:38:00+00:00"
                 }
             ],
@@ -41,7 +41,7 @@
         "3": {
             "control_flow_state": {
                 "flows": [
-                    "node_fcb8395d-b745-4e88-ac62-afbcfdf46792"
+                    "node_dc351b35-d937-46fe-b7ea-67c3991e9f08"
                 ],
                 "activities": []
             },
@@ -50,7 +50,7 @@
             "enabled_gateways": [],
             "enabled_events": [
                 {
-                    "id": "Event_e186d01f-f2ae-44e4-a584-d90be22ec747",
+                    "id": "Event_41f32f18-4063-4003-9e1e-2eba0c5b1087",
                     "enabled_time": "2011-01-01 09:03:00+00:00"
                 }
             ]
@@ -58,7 +58,7 @@
         "4": {
             "control_flow_state": {
                 "flows": [
-                    "node_fcb8395d-b745-4e88-ac62-afbcfdf46792"
+                    "node_dc351b35-d937-46fe-b7ea-67c3991e9f08"
                 ],
                 "activities": []
             },
@@ -67,7 +67,7 @@
             "enabled_gateways": [],
             "enabled_events": [
                 {
-                    "id": "Event_e186d01f-f2ae-44e4-a584-d90be22ec747",
+                    "id": "Event_41f32f18-4063-4003-9e1e-2eba0c5b1087",
                     "enabled_time": "2011-01-01 15:00:00+00:00"
                 }
             ]
@@ -75,7 +75,7 @@
         "5": {
             "control_flow_state": {
                 "flows": [
-                    "node_fcb8395d-b745-4e88-ac62-afbcfdf46792"
+                    "node_dc351b35-d937-46fe-b7ea-67c3991e9f08"
                 ],
                 "activities": []
             },
@@ -84,7 +84,7 @@
             "enabled_gateways": [],
             "enabled_events": [
                 {
-                    "id": "Event_e186d01f-f2ae-44e4-a584-d90be22ec747",
+                    "id": "Event_41f32f18-4063-4003-9e1e-2eba0c5b1087",
                     "enabled_time": "2011-01-01 16:35:00+00:00"
                 }
             ]
@@ -92,7 +92,7 @@
         "6": {
             "control_flow_state": {
                 "flows": [
-                    "node_fcb8395d-b745-4e88-ac62-afbcfdf46792"
+                    "node_dc351b35-d937-46fe-b7ea-67c3991e9f08"
                 ],
                 "activities": []
             },
@@ -101,7 +101,7 @@
             "enabled_gateways": [],
             "enabled_events": [
                 {
-                    "id": "Event_e186d01f-f2ae-44e4-a584-d90be22ec747",
+                    "id": "Event_41f32f18-4063-4003-9e1e-2eba0c5b1087",
                     "enabled_time": "2011-01-01 17:37:00+00:00"
                 }
             ]
@@ -110,12 +110,12 @@
             "control_flow_state": {
                 "flows": [],
                 "activities": [
-                    "node_9c9a0392-cf85-4a8a-ae51-d216792ac62d"
+                    "node_73b72907-8951-4f8d-ac49-e2eeed1541c9"
                 ]
             },
             "ongoing_activities": [
                 {
-                    "id": "node_9c9a0392-cf85-4a8a-ae51-d216792ac62d",
+                    "id": "node_73b72907-8951-4f8d-ac49-e2eeed1541c9",
                     "label": "Create Purchase Requisition",
                     "start_time": "2011-01-01 20:05:00+00:00",
                     "resource": "Esmana Liubiata",

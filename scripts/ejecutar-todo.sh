@@ -8,7 +8,7 @@
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_ROOT="$( cd "$SCRIPT_DIR/.." && pwd )"
 VENV_DIR="$PROJECT_ROOT/venv"
-SRC_DIR="$PROJECT_ROOT/src"
+SRC_DIR="$PROJECT_ROOT/src/causal-gym"
 
 # Verificar que existe el entorno virtual
 if [ ! -d "$VENV_DIR" ]; then
@@ -40,6 +40,9 @@ echo ""
 # Cambiar al directorio raíz del proyecto
 cd "$PROJECT_ROOT"
 
+# Agregar src/ al PYTHONPATH para que los módulos encuentren utils
+export PYTHONPATH="$PROJECT_ROOT/src:$PYTHONPATH"
+
 # Función para manejar errores
 handle_error() {
     echo ""
@@ -56,7 +59,7 @@ echo "==========================================================================
 echo ""
 
 if [ -f "$SRC_DIR/extract_bpmn_json.py" ]; then
-    python "$SRC_DIR/extract_bpmn_json.py" || handle_error "extract_bpmn_json.py"
+    PYTHONPATH="$PROJECT_ROOT/src:$PYTHONPATH" python "$SRC_DIR/extract_bpmn_json.py" || handle_error "extract_bpmn_json.py"
 else
     echo "❌ No se encontró: $SRC_DIR/extract_bpmn_json.py"
     deactivate
@@ -76,7 +79,7 @@ echo "==========================================================================
 echo ""
 
 if [ -f "$SRC_DIR/compute_state.py" ]; then
-    python "$SRC_DIR/compute_state.py" || handle_error "compute_state.py"
+    PYTHONPATH="$PROJECT_ROOT/src:$PYTHONPATH" python "$SRC_DIR/compute_state.py" || handle_error "compute_state.py"
 else
     echo "❌ No se encontró: $SRC_DIR/compute_state.py"
     deactivate
@@ -96,7 +99,7 @@ echo "==========================================================================
 echo ""
 
 if [ -f "$SRC_DIR/train_agent_in_gym.py" ]; then
-    python "$SRC_DIR/train_agent_in_gym.py" || handle_error "train_agent_in_gym.py"
+    PYTHONPATH="$PROJECT_ROOT/src:$PYTHONPATH" python "$SRC_DIR/train_agent_in_gym.py" || handle_error "train_agent_in_gym.py"
 else
     echo "❌ No se encontró: $SRC_DIR/train_agent_in_gym.py"
     deactivate
@@ -116,7 +119,7 @@ echo "==========================================================================
 echo ""
 
 if [ -f "$SRC_DIR/distill_policy.py" ]; then
-    python "$SRC_DIR/distill_policy.py" || handle_error "distill_policy.py"
+    PYTHONPATH="$PROJECT_ROOT/src:$PYTHONPATH" python "$SRC_DIR/distill_policy.py" || handle_error "distill_policy.py"
 else
     echo "❌ No se encontró: $SRC_DIR/distill_policy.py"
     deactivate
@@ -152,12 +155,40 @@ if not os.path.exists(config_path):
 with open(config_path, 'r') as f:
     config = yaml.safe_load(f)
 
+log_config = config.get('log_config', {})
 script_config = config.get('script_config', {})
-output_dir = script_config.get('output_dir')
-if output_dir:
-    if not os.path.isabs(output_dir):
+output_dir_base = script_config.get('output_dir')
+
+# Obtener nombre del log
+log_path = log_config.get('log_path')
+if log_path:
+    if not os.path.isabs(log_path):
         base_dir = '$PROJECT_ROOT'
-        output_dir = os.path.join(base_dir, output_dir)
+        log_path = os.path.join(base_dir, log_path)
+    log_name = os.path.splitext(os.path.basename(log_path))[0]
+    if log_name.endswith('.xes'):
+        log_name = os.path.splitext(log_name)[0]
+else:
+    log_name = 'default'
+
+if output_dir_base:
+    # Construir ruta con nombre del log: results/{log_name}/simod/
+    base_dir = '$PROJECT_ROOT'
+    output_dir_base = output_dir_base.rstrip('/')
+    if os.path.isabs(output_dir_base):
+        parts = output_dir_base.split(os.sep)
+        if len(parts) > 1:
+            parts.insert(-1, log_name)
+            output_dir = os.sep.join(parts)
+        else:
+            output_dir = os.path.join(output_dir_base, log_name, 'simod')
+    else:
+        parts = output_dir_base.split('/')
+        if len(parts) >= 2:
+            base_dir_name = parts[0]
+            output_dir = os.path.join(base_dir, base_dir_name, log_name, 'simod')
+        else:
+            output_dir = os.path.join(base_dir, log_name, 'simod')
     print(output_dir)
 else:
     print('data/generado-simod')
@@ -175,12 +206,40 @@ if not os.path.exists(config_path):
 with open(config_path, 'r') as f:
     config = yaml.safe_load(f)
 
+log_config = config.get('log_config', {})
 script_config = config.get('script_config', {})
-state_output_dir = script_config.get('state_output_dir')
-if state_output_dir:
-    if not os.path.isabs(state_output_dir):
+state_output_dir_base = script_config.get('state_output_dir')
+
+# Obtener nombre del log
+log_path = log_config.get('log_path')
+if log_path:
+    if not os.path.isabs(log_path):
         base_dir = '$PROJECT_ROOT'
-        state_output_dir = os.path.join(base_dir, state_output_dir)
+        log_path = os.path.join(base_dir, log_path)
+    log_name = os.path.splitext(os.path.basename(log_path))[0]
+    if log_name.endswith('.xes'):
+        log_name = os.path.splitext(log_name)[0]
+else:
+    log_name = 'default'
+
+if state_output_dir_base:
+    # Construir ruta con nombre del log: results/{log_name}/state/
+    base_dir = '$PROJECT_ROOT'
+    state_output_dir_base = state_output_dir_base.rstrip('/')
+    if os.path.isabs(state_output_dir_base):
+        parts = state_output_dir_base.split(os.sep)
+        if len(parts) > 1:
+            parts.insert(-1, log_name)
+            state_output_dir = os.sep.join(parts)
+        else:
+            state_output_dir = os.path.join(state_output_dir_base, log_name, 'state')
+    else:
+        parts = state_output_dir_base.split('/')
+        if len(parts) >= 2:
+            base_dir_name = parts[0]
+            state_output_dir = os.path.join(base_dir, base_dir_name, log_name, 'state')
+        else:
+            state_output_dir = os.path.join(base_dir, log_name, 'state')
     print(state_output_dir)
 else:
     print('data/generado-state')
@@ -198,21 +257,48 @@ if not os.path.exists(config_path):
 with open(config_path, 'r') as f:
     config = yaml.safe_load(f)
 
+log_config = config.get('log_config', {})
 script_config = config.get('script_config', {})
 distill_config = config.get('distill_config', {})
-rl_output_dir = script_config.get('rl_output_dir')
+rl_output_dir_base = script_config.get('rl_output_dir')
 input_csv = distill_config.get('input_csv')
 
-# Preferir input_csv de distill_config, luego rl_output_dir
+# Obtener nombre del log
+log_path = log_config.get('log_path')
+if log_path:
+    if not os.path.isabs(log_path):
+        base_dir = '$PROJECT_ROOT'
+        log_path = os.path.join(base_dir, log_path)
+    log_name = os.path.splitext(os.path.basename(log_path))[0]
+    if log_name.endswith('.xes'):
+        log_name = os.path.splitext(log_name)[0]
+else:
+    log_name = 'default'
+
+# Preferir input_csv de distill_config, luego construir desde rl_output_dir_base
 if input_csv:
     if not os.path.isabs(input_csv):
         base_dir = '$PROJECT_ROOT'
         input_csv = os.path.join(base_dir, input_csv)
     print(input_csv)
-elif rl_output_dir:
-    if not os.path.isabs(rl_output_dir):
-        base_dir = '$PROJECT_ROOT'
-        rl_output_dir = os.path.join(base_dir, rl_output_dir)
+elif rl_output_dir_base:
+    # Construir ruta con nombre del log: results/{log_name}/rl/experience_buffer.csv
+    base_dir = '$PROJECT_ROOT'
+    rl_output_dir_base = rl_output_dir_base.rstrip('/')
+    if os.path.isabs(rl_output_dir_base):
+        parts = rl_output_dir_base.split(os.sep)
+        if len(parts) > 1:
+            parts.insert(-1, log_name)
+            rl_output_dir = os.sep.join(parts)
+        else:
+            rl_output_dir = os.path.join(rl_output_dir_base, log_name, 'rl')
+    else:
+        parts = rl_output_dir_base.split('/')
+        if len(parts) >= 2:
+            base_dir_name = parts[0]
+            rl_output_dir = os.path.join(base_dir, base_dir_name, log_name, 'rl')
+        else:
+            rl_output_dir = os.path.join(base_dir, log_name, 'rl')
     print(os.path.join(rl_output_dir, 'experience_buffer.csv'))
 else:
     print('data/generado-rl-train/experience_buffer.csv')
@@ -230,13 +316,48 @@ if not os.path.exists(config_path):
 with open(config_path, 'r') as f:
     config = yaml.safe_load(f)
 
+log_config = config.get('log_config', {})
+script_config = config.get('script_config', {})
 distill_config = config.get('distill_config', {})
 output_model = distill_config.get('output_model')
+distill_output_dir_base = script_config.get('distill_output_dir')
+
+# Obtener nombre del log
+log_path = log_config.get('log_path')
+if log_path:
+    if not os.path.isabs(log_path):
+        base_dir = '$PROJECT_ROOT'
+        log_path = os.path.join(base_dir, log_path)
+    log_name = os.path.splitext(os.path.basename(log_path))[0]
+    if log_name.endswith('.xes'):
+        log_name = os.path.splitext(log_name)[0]
+else:
+    log_name = 'default'
+
 if output_model:
     if not os.path.isabs(output_model):
         base_dir = '$PROJECT_ROOT'
         output_model = os.path.join(base_dir, output_model)
     print(output_model)
+elif distill_output_dir_base:
+    # Construir ruta con nombre del log: results/{log_name}/distill/final_policy_model.pkl
+    base_dir = '$PROJECT_ROOT'
+    distill_output_dir_base = distill_output_dir_base.rstrip('/')
+    if os.path.isabs(distill_output_dir_base):
+        parts = distill_output_dir_base.split(os.sep)
+        if len(parts) > 1:
+            parts.insert(-1, log_name)
+            distill_output_dir = os.sep.join(parts)
+        else:
+            distill_output_dir = os.path.join(distill_output_dir_base, log_name, 'distill')
+    else:
+        parts = distill_output_dir_base.split('/')
+        if len(parts) >= 2:
+            base_dir_name = parts[0]
+            distill_output_dir = os.path.join(base_dir, base_dir_name, log_name, 'distill')
+        else:
+            distill_output_dir = os.path.join(base_dir, log_name, 'distill')
+    print(os.path.join(distill_output_dir, 'final_policy_model.pkl'))
 else:
     print('data/final_policy_model.pkl')
 " 2>/dev/null || echo "data/final_policy_model.pkl")

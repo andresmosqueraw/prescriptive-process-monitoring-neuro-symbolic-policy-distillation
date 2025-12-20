@@ -11,6 +11,12 @@ import pandas as pd
 import numpy as np
 from typing import Dict, Any
 
+# Agregar src/ al PYTHONPATH para encontrar utils
+script_dir = os.path.dirname(os.path.abspath(__file__))
+src_dir = os.path.dirname(script_dir)  # src/
+if src_dir not in sys.path:
+    sys.path.insert(0, src_dir)
+
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 
@@ -252,15 +258,15 @@ def main() -> None:
     log_config = config.get("log_config", {})
     bpi2017_config = log_config.get("bpi2017", {})
     
+    # Encontrar el directorio raíz del proyecto
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    if os.path.basename(script_dir) == "src":
-        base_dir = os.path.dirname(script_dir)
-    else:
-        base_dir = script_dir
+    # script_dir = src/benchmark/
+    src_dir = os.path.dirname(script_dir)  # src/
+    project_root = os.path.dirname(src_dir)  # proyecto raíz
     
     csv_path = bpi2017_config.get("csv_path", "logs/BPI2017/bpi-challenge-2017.csv")
     if not os.path.isabs(csv_path):
-        csv_path = os.path.join(base_dir, csv_path)
+        csv_path = os.path.join(project_root, csv_path)
     
     # Preparar DataFrame
     try:
@@ -314,7 +320,7 @@ def main() -> None:
     # Crear DF manual para asegurar que se guardan los valores corregidos
     results_df = pd.DataFrame([results])
     
-    output_path = os.path.join(base_dir, "results", "baseline_bpi2017_metrics.csv")
+    output_path = os.path.join(project_root, "results", "baseline_bpi2017_metrics.csv")
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     results_df.to_csv(output_path, index=False)
     logger.info(f"Resultados guardados en: {output_path}")
