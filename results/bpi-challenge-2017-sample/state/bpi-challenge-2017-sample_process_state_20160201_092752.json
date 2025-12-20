@@ -1,0 +1,39 @@
+{
+    "last_case_arrival": "2016-02-01 09:27:52.347000+00:00",
+    "cases": {
+        "Application_1779939197": {
+            "control_flow_state": {
+                "flows": [
+                    "node_d13672f6-c5f8-4a71-8828-f80023eaecb5"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [
+                {
+                    "id": "node_644eeb54-a24f-4d21-b94e-432caed14aae",
+                    "enabled_time": "2016-02-01 07:21:49.944000+00:00"
+                }
+            ],
+            "enabled_events": []
+        },
+        "Application_719477615": {
+            "control_flow_state": {
+                "flows": [
+                    "node_c65bfe81-a1e7-4665-bfc2-bb902f7dad85"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_482f5738-84e1-4b25-baa5-59dd4232e670",
+                    "enabled_time": "2016-02-01 09:27:52.347000+00:00"
+                }
+            ]
+        }
+    }
+}

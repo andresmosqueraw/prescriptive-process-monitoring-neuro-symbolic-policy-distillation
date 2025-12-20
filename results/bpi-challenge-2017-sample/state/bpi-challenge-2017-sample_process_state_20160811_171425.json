@@ -1,0 +1,56 @@
+{
+    "last_case_arrival": "2016-08-11 17:14:25.734000+00:00",
+    "cases": {
+        "Application_1262423377": {
+            "control_flow_state": {
+                "flows": [
+                    "node_44cf4f7b-ff91-4b58-88fb-f312bf58655c"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [
+                {
+                    "id": "node_cbefd297-90a6-40f4-b737-24640e0c7aa5",
+                    "enabled_time": "2016-08-09 19:07:28.601000+00:00"
+                }
+            ],
+            "enabled_events": []
+        },
+        "Application_1364846126": {
+            "control_flow_state": {
+                "flows": [
+                    "node_c65bfe81-a1e7-4665-bfc2-bb902f7dad85"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_482f5738-84e1-4b25-baa5-59dd4232e670",
+                    "enabled_time": "2016-08-11 17:14:25.734000+00:00"
+                }
+            ]
+        },
+        "Application_1729454690": {
+            "control_flow_state": {
+                "flows": [
+                    "node_44cf4f7b-ff91-4b58-88fb-f312bf58655c"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [
+                {
+                    "id": "node_cbefd297-90a6-40f4-b737-24640e0c7aa5",
+                    "enabled_time": "2016-08-09 08:33:36.511000+00:00"
+                }
+            ],
+            "enabled_events": []
+        }
+    }
+}
