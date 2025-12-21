@@ -148,6 +148,11 @@ script_config:
     image: "nokal/simod"
     user_id: null  # null = usar os.getuid()
     group_id: null  # null = usar os.getgid()
+    # Modo de red: "bridge" (default), "host" (bypassa problemas de networking), "none"
+    # "host" funciona mejor en sistemas Linux con problemas de networking de Docker
+    network_mode: "host"
+    # Si usar el flag --user (puede causar problemas en algunos sistemas)
+    use_user_flag: true
 
 # Configuración de entrenamiento RL (train_agent_in_gym.py)
 rl_config:

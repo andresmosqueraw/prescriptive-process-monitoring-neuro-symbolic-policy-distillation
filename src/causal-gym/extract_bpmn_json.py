@@ -162,6 +162,196 @@ def create_config_yaml(
     logger.info(f"Archivo de configuración creado: {config_path}")
     return config_path
 
+def check_docker_status() -> Tuple[bool, str]:
+    """
+    Verifica el estado de Docker y retorna diagnóstico.
+    
+    Returns:
+        Tupla (is_ok, message) indicando si Docker está funcionando correctamente
+    """
+    try:
+        # Verificar si docker está instalado y accesible
+        result = subprocess.run(
+            ["docker", "--version"],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        if result.returncode != 0:
+            return False, "Docker no está instalado o no es accesible"
+        
+        # Verificar si el daemon de Docker está corriendo
+        result = subprocess.run(
+            ["docker", "info"],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+        if result.returncode != 0:
+            return False, f"Docker daemon no está corriendo: {result.stderr.strip()}"
+        
+        # Verificar si la imagen existe
+        docker_image = "nokal/simod"
+        result = subprocess.run(
+            ["docker", "images", "-q", docker_image],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+        if not result.stdout.strip():
+            return False, f"Imagen Docker '{docker_image}' no encontrada. Ejecuta: docker pull {docker_image}"
+        
+        return True, "Docker está funcionando correctamente"
+    except subprocess.TimeoutExpired:
+        return False, "Timeout al verificar Docker (el daemon puede estar lento)"
+    except FileNotFoundError:
+        return False, "Docker no está instalado o no está en PATH"
+    except Exception as e:
+        return False, f"Error verificando Docker: {str(e)}"
+
+def _execute_docker_command(
+    docker_command: list,
+    description: str = "",
+    show_output: bool = True
+) -> Tuple[int, list]:
+    """
+    Ejecuta un comando Docker y retorna el código de salida y las líneas de salida.
+    
+    Args:
+        docker_command: Lista con el comando Docker a ejecutar
+        description: Descripción opcional del intento (para logging)
+        show_output: Si True, muestra líneas importantes de la salida en tiempo real
+    
+    Returns:
+        Tupla (returncode, stdout_lines) con el código de salida y las líneas de salida
+    """
+    if description:
+        logger.info(f"🔄 {description}")
+    
+    process = subprocess.Popen(
+        docker_command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1,
+        universal_newlines=True
+    )
+    
+    stdout_lines = []
+    start_time = time.time()
+    last_progress_log = time.time()
+    progress_log_interval = 30
+    
+    # Patrones a filtrar (muy verbosos)
+    skip_patterns = [
+        'simulation settings:',
+        'prosimossettings(',
+        'posixpath(',
+        'finished serializing log',
+        'info:root:running java',
+    ]
+    
+    # Palabras clave importantes
+    important_keywords = [
+        'iteration', 'optimization', 'discovering', 
+        'computing', 'control-flow', 'resource',
+        'error', 'exception', 'traceback', 'failed',
+        'best_result', 'completed', 'finished',
+        'splitminer', 'gateway probabilities',
+        'loss:', 'status:', 'best'
+    ]
+    
+    try:
+        while True:
+            if process.poll() is not None:
+                remaining = process.stdout.read()
+                if remaining:
+                    for line in remaining.splitlines():
+                        line = line.strip()
+                        if line:
+                            stdout_lines.append(line)
+                            if show_output:
+                                line_lower = line.lower()
+                                if any(keyword in line_lower for keyword in important_keywords):
+                                    if not any(pattern in line_lower for pattern in skip_patterns):
+                                        logger.info(f"📝 Simod: {line[:200]}")
+                break
+            
+            try:
+                line = process.stdout.readline()
+                if line:
+                    line = line.strip()
+                    if line:
+                        stdout_lines.append(line)
+                        if show_output:
+                            line_lower = line.lower()
+                            # Filtrar líneas verbosas
+                            if any(pattern in line_lower for pattern in skip_patterns):
+                                pass  # Saltar estas líneas
+                            elif any(keyword in line_lower for keyword in important_keywords):
+                                # Log líneas importantes
+                                if 'control-flow optimization iteration' in line_lower:
+                                    match = re.search(r'iteration (\d+)', line_lower)
+                                    if match:
+                                        logger.info(f"🔄 Iteración {match.group(1)} de optimización de control-flow")
+                                elif 'loss:' in line_lower or 'status:' in line_lower:
+                                    loss_match = re.search(r"'loss':\s*([\d.]+)", line)
+                                    status_match = re.search(r"'status':\s*'(\w+)'", line)
+                                    if loss_match and status_match:
+                                        loss_val = float(loss_match.group(1))
+                                        status_val = status_match.group(1)
+                                        status_emoji = "✅" if status_val == "ok" else "⚠️"
+                                        logger.info(f"📊 {status_emoji} Loss: {loss_val:.6f} | Status: {status_val}")
+                                    else:
+                                        logger.info(f"📊 Simod: {line[:200]}")
+                                elif 'discovering process model' in line_lower:
+                                    logger.info(f"🔍 Descubriendo modelo de proceso...")
+                                elif 'computing gateway probabilities' in line_lower:
+                                    logger.info(f"⚙️  Calculando probabilidades de gateways...")
+                                elif 'splitminer' in line_lower and 'running' in line_lower:
+                                    epsilon_match = re.search(r"--epsilon['\"]?\s*([\d.]+)", line)
+                                    if epsilon_match:
+                                        epsilon_val = float(epsilon_match.group(1))
+                                        logger.info(f"⚙️  SplitMiner ejecutándose (epsilon={epsilon_val:.4f})...")
+                                    else:
+                                        logger.info(f"⚙️  SplitMiner ejecutándose...")
+                                else:
+                                    logger.info(f"📝 Simod: {line[:150]}")
+                        last_progress_log = time.time()
+                else:
+                    if time.time() - last_progress_log > progress_log_interval:
+                        elapsed = time.time() - start_time
+                        minutes = int(elapsed // 60)
+                        seconds = int(elapsed % 60)
+                        logger.info(f"⏱️  Tiempo transcurrido: {minutes}m {seconds}s...")
+                        last_progress_log = time.time()
+            except Exception:
+                time.sleep(0.1)
+                continue
+            
+            time.sleep(0.1)
+    except KeyboardInterrupt:
+        logger.warning("⚠️  Interrupción detectada, terminando proceso Docker...")
+        process.terminate()
+        process.wait()
+        return (130, stdout_lines)  # 130 = SIGINT
+    
+    returncode = process.wait()
+    return (returncode, stdout_lines)
+
+def _is_networking_error(stdout_lines: list) -> bool:
+    """Detecta si el error es un problema de networking de Docker."""
+    error_text = " ".join(stdout_lines).lower() if stdout_lines else ""
+    return any(
+        phrase in error_text for phrase in [
+            "failed to set up container networking",
+            "failed to create endpoint",
+            "operation not supported",
+            "veth",
+            "network bridge"
+        ]
+    )
+
 def run_simod_docker(
     input_path: str,
     output_path: str,
@@ -170,6 +360,7 @@ def run_simod_docker(
 ) -> bool:
     """
     Ejecuta Simod usando Docker con logging en tiempo real.
+    Implementa fallback automático si hay problemas de networking.
     
     Args:
         input_path: Directorio de entrada montado en Docker
@@ -180,6 +371,22 @@ def run_simod_docker(
     Returns:
         True si Simod se ejecutó exitosamente, False en caso contrario
     """
+    # Verificar estado de Docker antes de intentar ejecutar
+    logger.info("🔍 Verificando estado de Docker...")
+    docker_ok, docker_msg = check_docker_status()
+    if not docker_ok:
+        logger.error(f"❌ {docker_msg}")
+        logger.error("")
+        logger.error("💡 Soluciones posibles:")
+        logger.error("   1. Iniciar Docker: sudo systemctl start docker")
+        logger.error("   2. Verificar que Docker esté corriendo: docker info")
+        logger.error("   3. Reiniciar Docker: sudo systemctl restart docker")
+        logger.error("   4. Verificar módulos del kernel: lsmod | grep bridge")
+        logger.error("   5. Cargar módulos si faltan: sudo modprobe bridge")
+        return False
+    logger.info(f"✅ {docker_msg}")
+    logger.info("")
+    
     config_inside_container = f"/usr/src/Simod/resources/{config_file_name}"
     
     # Obtener user_id y group_id de la configuración o usar valores por defecto
@@ -187,15 +394,53 @@ def run_simod_docker(
     group_id = docker_config.get("group_id") or os.getgid()
     docker_image = docker_config.get("image", "nokal/simod")
     
-    docker_command = [
-        "docker", "run", "--rm",
-        "--user", f"{user_id}:{group_id}",
-        "-v", f"{input_path}:/usr/src/Simod/resources",
-        "-v", f"{output_path}:/usr/src/Simod/outputs",
-        docker_image,
-        "poetry", "run", "simod",
-        "--configuration", config_inside_container
+    # Obtener configuración de red y usuario desde config (o usar defaults)
+    network_mode = docker_config.get("network_mode", "bridge")
+    use_user_flag = docker_config.get("use_user_flag", True)
+    
+    # Definir estrategias de fallback a probar
+    fallback_strategies = [
+        {
+            "network_mode": network_mode,
+            "use_user_flag": use_user_flag,
+            "description": "Configuración inicial"
+        }
     ]
+    
+    # Si la configuración inicial no es host o sin user flag, agregar fallbacks
+    if network_mode == "bridge" and use_user_flag:
+        # Agregar estrategias de fallback
+        fallback_strategies.extend([
+            {
+                "network_mode": "host",
+                "use_user_flag": True,
+                "description": "Intentando con modo de red 'host'"
+            },
+            {
+                "network_mode": "bridge",
+                "use_user_flag": False,
+                "description": "Intentando sin flag --user"
+            },
+            {
+                "network_mode": "host",
+                "use_user_flag": False,
+                "description": "Intentando con modo 'host' y sin flag --user"
+            }
+        ])
+    elif network_mode == "bridge" and not use_user_flag:
+        # Solo falta probar host network
+        fallback_strategies.append({
+            "network_mode": "host",
+            "use_user_flag": False,
+            "description": "Intentando con modo de red 'host'"
+        })
+    elif network_mode == "host" and use_user_flag:
+        # Solo falta probar sin user flag
+        fallback_strategies.append({
+            "network_mode": "host",
+            "use_user_flag": False,
+            "description": "Intentando sin flag --user"
+        })
     
     logger.info("=" * 80)
     logger.info("🚀 INICIANDO SIMOD CON DOCKER")
@@ -204,192 +449,129 @@ def run_simod_docker(
     logger.info(f"Directorio de entrada: {input_path}")
     logger.info(f"Directorio de salida: {output_path}")
     logger.info(f"Configuración: {config_file_name}")
-    logger.info(f"Comando: {' '.join(docker_command)}")
     logger.info("")
-    logger.info("⏳ Simod está ejecutándose... (esto puede tomar varios minutos)")
-    logger.info("📊 Mostrando progreso en tiempo real:")
-    logger.info("-" * 80)
     
-    start_time = time.time()
-    last_progress_log = time.time()
-    
-    # Función para log periódico de progreso
-    def log_progress():
-        elapsed = time.time() - start_time
-        minutes = int(elapsed // 60)
-        seconds = int(elapsed % 60)
-        logger.info(f"⏱️  Tiempo transcurrido: {minutes}m {seconds}s - Simod sigue ejecutándose...")
-    
-    # Ejecutar con salida en tiempo real
-    process = subprocess.Popen(
-        docker_command,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,  # Combinar stderr con stdout
-        text=True,
-        bufsize=1,  # Line buffered
-        universal_newlines=True
-    )
-    
-    # Leer salida línea por línea en tiempo real
-    stdout_lines = []
-    progress_log_interval = 30  # Log cada 30 segundos si no hay salida
-    iteration_count = 0  # Contador de iteraciones para resumen
-    last_iteration_log = None
-    
-    try:
-        while True:
-            # Verificar si el proceso terminó
-            if process.poll() is not None:
-                # Leer cualquier salida restante
-                remaining = process.stdout.read()
-                if remaining:
-                    for line in remaining.splitlines():
-                        line = line.strip()
-                        if line:
-                            stdout_lines.append(line)
-                            # Log líneas importantes
-                            if any(keyword in line.lower() for keyword in [
-                                'iteration', 'optimization', 'discovering', 
-                                'computing', 'control-flow', 'resource',
-                                'error', 'warning', 'traceback', 'failed'
-                            ]):
-                                logger.info(f"📝 Simod: {line}")
-                break
+    # Intentar cada estrategia hasta que una funcione
+    for attempt_num, strategy in enumerate(fallback_strategies, 1):
+        if attempt_num > 1:
+            logger.info("")
+            logger.info("=" * 80)
+            logger.info(f"🔄 INTENTO {attempt_num}: {strategy['description']}")
+            logger.info("=" * 80)
+            logger.info("")
+        
+        # Construir comando Docker según la estrategia
+        docker_command = ["docker", "run", "--rm"]
+        
+        if strategy["use_user_flag"]:
+            docker_command.extend(["--user", f"{user_id}:{group_id}"])
+        
+        if strategy["network_mode"] != "bridge":
+            docker_command.extend(["--network", strategy["network_mode"]])
+        
+        docker_command.extend([
+            "-v", f"{input_path}:/usr/src/Simod/resources",
+            "-v", f"{output_path}:/usr/src/Simod/outputs",
+            docker_image,
+            "poetry", "run", "simod",
+            "--configuration", config_inside_container
+        ])
+        
+        if attempt_num == 1:
+            logger.info(f"Comando: {' '.join(docker_command)}")
+            logger.info("")
+            logger.info("⏳ Simod está ejecutándose... (esto puede tomar varios minutos)")
+            logger.info("📊 Mostrando progreso en tiempo real:")
+            logger.info("-" * 80)
+        else:
+            logger.info(f"Comando: {' '.join(docker_command)}")
+            logger.info("⏳ Ejecutando...")
+        
+        start_time = time.time()
+        returncode, stdout_lines = _execute_docker_command(docker_command, "")
+        
+        elapsed_time = time.time() - start_time
+        minutes = int(elapsed_time // 60)
+        seconds = int(elapsed_time % 60)
+        
+        logger.info("-" * 80)
+        logger.info(f"⏱️  Tiempo total de ejecución: {minutes}m {seconds}s")
+        
+        if returncode == 0:
+            logger.info("✅ Simod ejecutado exitosamente")
+            if attempt_num > 1:
+                logger.info(f"✅ Funcionó con: {strategy['description']}")
+            # Mostrar resumen si hay información
+            if stdout_lines:
+                relevant_lines = [l for l in stdout_lines[-20:] if any(
+                    keyword in l.lower() for keyword in [
+                        'best_result', 'completed', 'finished', 'success', 'best'
+                    ]
+                )]
+                if relevant_lines:
+                    logger.info("📋 Últimas líneas relevantes:")
+                    for line in relevant_lines[:5]:
+                        logger.info(f"   {line[:200]}")
+            return True
+        else:
+            # Verificar si es un error de networking
+            is_networking = _is_networking_error(stdout_lines)
             
-            # Leer línea si está disponible (con timeout)
-            try:
-                line = process.stdout.readline()
-                if line:
-                    line = line.strip()
-                    if line:
-                        stdout_lines.append(line)
-                        # Log líneas importantes inmediatamente (filtrado inteligente)
-                        line_lower = line.lower()
-                        
-                        # Filtrar líneas muy verbosas o repetitivas
-                        skip_patterns = [
-                            'simulation settings:',  # Muy repetitivo (3x por iteración)
-                            'prosimossettings(',  # Detalles técnicos innecesarios
-                            'posixpath(',  # Rutas internas
-                            'finished serializing log',  # Muy frecuente
-                            'info:root:running java',  # Detalles técnicos
-                        ]
-                        
-                        if any(pattern in line_lower for pattern in skip_patterns):
-                            continue  # Saltar estas líneas
-                        
-                        # Log líneas importantes
-                        important_keywords = [
-                            'iteration', 'optimization', 'discovering', 
-                            'computing', 'control-flow', 'resource',
-                            'error', 'exception', 'traceback', 'failed',
-                            'best_result', 'completed', 'finished',
-                            'splitminer', 'gateway probabilities',
-                            'loss:', 'status:', 'best'
-                        ]
-                        
-                        if any(keyword in line_lower for keyword in important_keywords):
-                            # Formatear mejor las líneas importantes
-                            if 'control-flow optimization iteration' in line_lower:
-                                # Extraer número de iteración
-                                import re
-                                match = re.search(r'iteration (\d+)', line_lower)
-                                if match:
-                                    iteration_count = int(match.group(1))
-                                    logger.info(f"🔄 Iteración {iteration_count} de optimización de control-flow")
-                                    last_iteration_log = time.time()
-                            elif 'loss:' in line_lower or 'status:' in line_lower:
-                                # Mostrar pérdida y estado de forma más clara
-                                if 'loss' in line_lower:
-                                    loss_match = re.search(r"'loss':\s*([\d.]+)", line)
-                                    status_match = re.search(r"'status':\s*'(\w+)'", line)
-                                    if loss_match and status_match:
-                                        loss_val = float(loss_match.group(1))
-                                        status_val = status_match.group(1)
-                                        status_emoji = "✅" if status_val == "ok" else "⚠️"
-                                        logger.info(f"📊 {status_emoji} Loss: {loss_val:.6f} | Status: {status_val}")
-                                    else:
-                                        logger.info(f"📊 Simod: {line[:200]}")
-                                else:
-                                    logger.info(f"📊 Simod: {line[:200]}")
-                            elif 'discovering process model' in line_lower:
-                                logger.info(f"🔍 Descubriendo modelo de proceso...")
-                            elif 'computing gateway probabilities' in line_lower:
-                                logger.info(f"⚙️  Calculando probabilidades de gateways...")
-                            elif 'splitminer' in line_lower and 'running' in line_lower:
-                                # Extraer epsilon si está disponible
-                                epsilon_match = re.search(r"--epsilon['\"]?\s*([\d.]+)", line)
-                                if epsilon_match:
-                                    epsilon_val = float(epsilon_match.group(1))
-                                    logger.info(f"⚙️  SplitMiner ejecutándose (epsilon={epsilon_val:.4f})...")
-                                else:
-                                    logger.info(f"⚙️  SplitMiner ejecutándose...")
-                            else:
-                                logger.info(f"📝 Simod: {line[:150]}")
-                        last_progress_log = time.time()
-                else:
-                    # Si no hay salida, log periódico
-                    if time.time() - last_progress_log > progress_log_interval:
-                        log_progress()
-                        last_progress_log = time.time()
-            except Exception as e:
-                logger.debug(f"Error leyendo salida: {e}")
-                time.sleep(0.1)
+            if is_networking and attempt_num < len(fallback_strategies):
+                # Es un error de networking y hay más estrategias por probar
+                logger.warning(f"⚠️  Error de networking detectado")
+                logger.warning(f"   Probando siguiente estrategia...")
                 continue
-            
-            time.sleep(0.1)  # Pequeña pausa para no consumir CPU
-    
-    except KeyboardInterrupt:
-        logger.warning("⚠️  Interrupción detectada, terminando proceso Docker...")
-        process.terminate()
-        process.wait()
-        return False
-    
-    # Esperar a que termine completamente
-    returncode = process.wait()
-    elapsed_time = time.time() - start_time
-    minutes = int(elapsed_time // 60)
-    seconds = int(elapsed_time % 60)
-    
-    logger.info("-" * 80)
-    logger.info(f"⏱️  Tiempo total de ejecución: {minutes}m {seconds}s")
-    
-    if returncode == 0:
-        logger.info("✅ Simod ejecutado exitosamente")
-        # Mostrar resumen de iteraciones si hay información
-        if iteration_count > 0:
-            logger.info(f"📊 Resumen: {iteration_count + 1} iteraciones de optimización completadas")
-        # Mostrar últimas líneas de salida si hay información relevante
-        if stdout_lines:
-            relevant_lines = [l for l in stdout_lines[-20:] if any(
-                keyword in l.lower() for keyword in [
-                    'best_result', 'completed', 'finished', 'success', 'best'
-                ]
-            )]
-            if relevant_lines:
-                logger.info("📋 Últimas líneas relevantes:")
-                for line in relevant_lines[:5]:  # Solo primeras 5 líneas relevantes
-                    logger.info(f"   {line[:200]}")
-        return True
-    else:
-        logger.error("❌ Simod falló")
-        logger.error(f"Código de salida: {returncode}")
-        # Mostrar últimas líneas de error
-        if stdout_lines:
-            error_lines = [l for l in stdout_lines if any(
-                keyword in l.lower() for keyword in [
-                    'error', 'exception', 'traceback', 'failed', 'keyerror'
-                ]
-            )]
-            if error_lines:
-                logger.error("📋 Líneas de error encontradas:")
-                for line in error_lines[-30:]:  # Últimas 30 líneas de error
-                    logger.error(f"   {line}")
             else:
-                logger.error("📋 Últimas 50 líneas de salida:")
-                for line in stdout_lines[-50:]:
-                    logger.error(f"   {line}")
-        return False
+                # No es networking o es el último intento
+                logger.error("❌ Simod falló")
+                logger.error(f"Código de salida: {returncode}")
+                
+                if is_networking:
+                    logger.error("")
+                    logger.error("=" * 80)
+                    logger.error("🔧 ERROR DE RED DE DOCKER DETECTADO")
+                    logger.error("=" * 80)
+                    logger.error("")
+                    logger.error("Se intentaron todas las configuraciones alternativas sin éxito.")
+                    logger.error("")
+                    logger.error("💡 Soluciones manuales a intentar:")
+                    logger.error("")
+                    logger.error("1. Reiniciar el servicio de Docker:")
+                    logger.error("   sudo systemctl restart docker")
+                    logger.error("")
+                    logger.error("2. Verificar que los módulos del kernel estén cargados:")
+                    logger.error("   lsmod | grep bridge")
+                    logger.error("   lsmod | grep veth")
+                    logger.error("   Si faltan, cargar con: sudo modprobe bridge")
+                    logger.error("")
+                    logger.error("3. Limpiar la red de Docker:")
+                    logger.error("   docker network prune -f")
+                    logger.error("")
+                    logger.error("4. Verificar permisos de Docker:")
+                    logger.error("   sudo usermod -aG docker $USER")
+                    logger.error("   (luego cierra sesión y vuelve a entrar)")
+                    logger.error("")
+                
+                # Mostrar líneas de error
+                if stdout_lines:
+                    error_lines = [l for l in stdout_lines if any(
+                        keyword in l.lower() for keyword in [
+                            'error', 'exception', 'traceback', 'failed', 'keyerror'
+                        ]
+                    )]
+                    if error_lines:
+                        logger.error("📋 Líneas de error encontradas:")
+                        for line in error_lines[-30:]:
+                            logger.error(f"   {line}")
+                    else:
+                        logger.error("📋 Últimas 50 líneas de salida:")
+                        for line in stdout_lines[-50:]:
+                            logger.error(f"   {line}")
+                return False
+    
+    # No debería llegar aquí, pero por si acaso
+    return False
 
 def find_and_copy_results(
     simod_output_dir: str,
