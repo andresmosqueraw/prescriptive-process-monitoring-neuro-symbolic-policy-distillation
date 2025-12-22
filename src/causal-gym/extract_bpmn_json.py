@@ -692,6 +692,49 @@ def extract_bpmn_json(
         logger.error(f"No se encontró el archivo: {log_path}")
         return False
     
+    # Detectar tamaño del dataset para ajustar configuración automáticamente
+    # Si el dataset es muy pequeño, desactivar discover_data_attributes para evitar errores de split
+    try:
+        import pandas as pd
+        case_col = log_config.get("column_mapping", {}).get("case", "case:concept:name")
+        # Solo verificar para CSV (XES es más complejo de verificar rápidamente)
+        if log_path.endswith('.csv') or log_path.endswith('.csv.gz'):
+            # Leer solo una muestra para contar casos únicos (más rápido)
+            if log_path.endswith('.gz'):
+                import gzip
+                with gzip.open(log_path, 'rt') as f:
+                    df_check = pd.read_csv(f, nrows=5000, low_memory=False)
+            else:
+                df_check = pd.read_csv(log_path, nrows=5000, low_memory=False)
+            
+            if case_col in df_check.columns:
+                n_cases_sample = df_check[case_col].nunique()
+                # Si hay menos de 50 casos en la muestra, verificar el total
+                if n_cases_sample < 50:
+                    # Leer todo el archivo para contar casos totales
+                    logger.info(f"📊 Verificando tamaño del dataset (muestra: {n_cases_sample} casos)...")
+                    if log_path.endswith('.gz'):
+                        with gzip.open(log_path, 'rt') as f:
+                            df_full = pd.read_csv(f, low_memory=False)
+                    else:
+                        df_full = pd.read_csv(log_path, low_memory=False)
+                    n_cases_total = df_full[case_col].nunique()
+                    
+                    # Si hay menos de 50 casos totales, desactivar discover_data_attributes
+                    if n_cases_total < 50:
+                        logger.info(f"📊 Dataset pequeño detectado: {n_cases_total} casos únicos")
+                        logger.info(f"   Desactivando discover_data_attributes para evitar errores de train/test split")
+                        simod_config = simod_config.copy()
+                        if "common" not in simod_config:
+                            simod_config["common"] = {}
+                        simod_config["common"] = simod_config["common"].copy()
+                        simod_config["common"]["discover_data_attributes"] = False
+                    else:
+                        logger.info(f"📊 Dataset tiene {n_cases_total} casos, discover_data_attributes activado")
+    except Exception as e:
+        logger.warning(f"⚠️  No se pudo verificar tamaño del dataset: {e}")
+        logger.warning("   Continuando con configuración original...")
+    
     # Obtener información del log
     log_dir = os.path.dirname(os.path.abspath(log_path))
     log_filename = os.path.basename(log_path)

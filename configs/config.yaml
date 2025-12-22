@@ -48,6 +48,8 @@ simod_config:
   
   # Configuración común
   common:
+    # NOTA: discover_data_attributes se desactiva automáticamente para datasets pequeños (<50 casos)
+    # para evitar errores de train/test split. Si tienes un dataset grande, puedes activarlo.
     discover_data_attributes: true
   
   # Preprocesamiento

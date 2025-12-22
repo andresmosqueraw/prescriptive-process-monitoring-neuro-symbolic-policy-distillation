@@ -388,9 +388,9 @@ def compute_state(config: Optional[Dict[str, Any]] = None) -> Optional[List[str]
             logger.error(f"Columna 'EndTime' no encontrada después del mapeo. Columnas disponibles: {list(log_df.columns)}")
             raise ValueError("Columna 'EndTime' no encontrada. Verifica el mapeo de columnas en config.yaml")
     
-    # Convertir timestamps
-    log_df['StartTime'] = pd.to_datetime(log_df['StartTime'], utc=True)
-    log_df['EndTime'] = pd.to_datetime(log_df['EndTime'], utc=True)
+    # Convertir timestamps (usar format='mixed' para manejar diferentes formatos)
+    log_df['StartTime'] = pd.to_datetime(log_df['StartTime'], utc=True, format='mixed', errors='coerce')
+    log_df['EndTime'] = pd.to_datetime(log_df['EndTime'], utc=True, format='mixed', errors='coerce')
     
     # Obtener estrategia de puntos de corte
     cut_strategy = ongoing_config.get("cut_strategy", "fixed")

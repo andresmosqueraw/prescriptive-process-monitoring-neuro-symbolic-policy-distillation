@@ -1,10 +1,10 @@
 {
-    "last_case_arrival": "2016-01-18 09:24:55.057000+00:00",
+    "last_case_arrival": "2016-01-03 19:38:39.293000+00:00",
     "cases": {
-        "Application_1779939197": {
+        "Application_1876456626": {
             "control_flow_state": {
                 "flows": [
-                    "node_8d1fa8d9-c003-42f9-a39c-34e056ac5e60"
+                    "node_2242320c-c3ec-416a-8423-a7b1806ca458"
                 ],
                 "activities": []
             },
@@ -13,8 +13,8 @@
             "enabled_gateways": [],
             "enabled_events": [
                 {
-                    "id": "Event_0e301af0-af41-48dc-b433-b64aa83bddc1",
-                    "enabled_time": "2016-01-18 09:24:55.057000+00:00"
+                    "id": "Event_40e3ac82-fbe9-4949-9323-5044eb8420ec",
+                    "enabled_time": "2016-01-03 19:38:39.293000+00:00"
                 }
             ]
         }

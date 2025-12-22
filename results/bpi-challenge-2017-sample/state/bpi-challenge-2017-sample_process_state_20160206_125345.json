@@ -1,0 +1,73 @@
+{
+    "last_case_arrival": "2016-02-06 12:53:45.231000+00:00",
+    "cases": {
+        "Application_1203113229": {
+            "control_flow_state": {
+                "flows": [
+                    "node_95284d2a-88ff-4e50-a3e8-2f84fcebcf12"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [
+                {
+                    "id": "node_280586d2-5fd0-49d4-8572-8caf41c3d163",
+                    "enabled_time": "2016-01-29 08:57:12.977000+00:00"
+                }
+            ],
+            "enabled_events": []
+        },
+        "Application_1539926534": {
+            "control_flow_state": {
+                "flows": [
+                    "node_188cf435-a0b8-4191-9ab3-ac4a582f46f7"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [
+                {
+                    "id": "node_1ba64cc5-5967-464b-b1a3-9f39b4e7659e",
+                    "enabled_time": "2016-02-05 09:37:17.623000+00:00"
+                }
+            ],
+            "enabled_events": []
+        },
+        "Application_1858876732": {
+            "control_flow_state": {
+                "flows": [
+                    "node_3d31be3a-feb1-4ce8-b4c6-6189ffab3a28"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [
+                {
+                    "id": "node_e12fb29e-ed35-4bf5-8e48-e55820f286cc",
+                    "enabled_time": "2016-02-05 14:38:05.985000+00:00"
+                }
+            ],
+            "enabled_events": []
+        },
+        "Application_665516246": {
+            "control_flow_state": {
+                "flows": [
+                    "node_2242320c-c3ec-416a-8423-a7b1806ca458"
+                ],
+                "activities": []
+            },
+            "ongoing_activities": [],
+            "enabled_activities": [],
+            "enabled_gateways": [],
+            "enabled_events": [
+                {
+                    "id": "Event_40e3ac82-fbe9-4949-9323-5044eb8420ec",
+                    "enabled_time": "2016-02-06 12:53:45.231000+00:00"
+                }
+            ]
+        }
+    }
+}

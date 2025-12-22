@@ -1,10 +1,10 @@
 {
-    "last_case_arrival": "2016-02-01 09:27:52.347000+00:00",
+    "last_case_arrival": "2016-01-21 10:51:58.194000+00:00",
     "cases": {
-        "Application_1779939197": {
+        "Application_1203113229": {
             "control_flow_state": {
                 "flows": [
-                    "node_57439891-3a55-40fd-8cee-fcb76c108be2"
+                    "node_95284d2a-88ff-4e50-a3e8-2f84fcebcf12"
                 ],
                 "activities": []
             },
@@ -12,16 +12,16 @@
             "enabled_activities": [],
             "enabled_gateways": [
                 {
-                    "id": "node_b72eb198-7c8e-4c55-bfdf-d73cca4050b6",
-                    "enabled_time": "2016-02-01 07:21:49.944000+00:00"
+                    "id": "node_280586d2-5fd0-49d4-8572-8caf41c3d163",
+                    "enabled_time": "2016-01-19 13:08:59.676000+00:00"
                 }
             ],
             "enabled_events": []
         },
-        "Application_719477615": {
+        "Application_1288525689": {
             "control_flow_state": {
                 "flows": [
-                    "node_8d1fa8d9-c003-42f9-a39c-34e056ac5e60"
+                    "node_2242320c-c3ec-416a-8423-a7b1806ca458"
                 ],
                 "activities": []
             },
@@ -30,8 +30,8 @@
             "enabled_gateways": [],
             "enabled_events": [
                 {
-                    "id": "Event_0e301af0-af41-48dc-b433-b64aa83bddc1",
-                    "enabled_time": "2016-02-01 09:27:52.347000+00:00"
+                    "id": "Event_40e3ac82-fbe9-4949-9323-5044eb8420ec",
+                    "enabled_time": "2016-01-21 10:51:58.194000+00:00"
                 }
             ]
         }
