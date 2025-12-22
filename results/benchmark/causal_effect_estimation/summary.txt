@@ -1,0 +1,57 @@
+================================================================================
+RESUMEN DE EVALUACIÓN: Causal Effect Estimation
+================================================================================
+
+Métodos evaluados exitosamente: 9
+Métodos que fallaron: 0
+
+Métodos exitosos:
+  ✅ CausalForest
+  ✅ CausalTree
+  ✅ SLearner
+  ✅ TLearner
+  ✅ XLearner
+  ✅ StandardizationEstimator
+  ✅ ORthoforestDML
+  ✅ IPWEstimator
+  ✅ MatchingEstimator
+
+================================================================================
+RANKING (por Net Gain)
+================================================================================
+
+CausalForest:
+  Net Gain: $0.72
+  Lift vs BAU: +424.55%
+
+CausalTree:
+  Net Gain: $0.72
+  Lift vs BAU: +424.55%
+
+SLearner:
+  Net Gain: $0.72
+  Lift vs BAU: +424.55%
+
+TLearner:
+  Net Gain: $0.72
+  Lift vs BAU: +424.55%
+
+XLearner:
+  Net Gain: $0.72
+  Lift vs BAU: +424.55%
+
+StandardizationEstimator:
+  Net Gain: $0.72
+  Lift vs BAU: +424.55%
+
+ORthoforestDML:
+  Net Gain: $0.72
+  Lift vs BAU: +424.55%
+
+MatchingEstimator:
+  Net Gain: $0.72
+  Lift vs BAU: +424.55%
+
+IPWEstimator:
+  Net Gain: $-0.14
+  Lift vs BAU: +37.73%
