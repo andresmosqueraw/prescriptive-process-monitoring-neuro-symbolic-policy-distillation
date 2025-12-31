@@ -284,17 +284,17 @@ def _execute_docker_command(
                     if line:
                         stdout_lines.append(line)
                         if show_output:
-                            line_lower = line.lower()
+                        line_lower = line.lower()
                             # Filtrar líneas verbosas
-                            if any(pattern in line_lower for pattern in skip_patterns):
+                        if any(pattern in line_lower for pattern in skip_patterns):
                                 pass  # Saltar estas líneas
                             elif any(keyword in line_lower for keyword in important_keywords):
-                                # Log líneas importantes
-                                if 'control-flow optimization iteration' in line_lower:
-                                    match = re.search(r'iteration (\d+)', line_lower)
-                                    if match:
+                        # Log líneas importantes
+                            if 'control-flow optimization iteration' in line_lower:
+                                match = re.search(r'iteration (\d+)', line_lower)
+                                if match:
                                         logger.info(f"🔄 Iteración {match.group(1)} de optimización de control-flow")
-                                elif 'loss:' in line_lower or 'status:' in line_lower:
+                            elif 'loss:' in line_lower or 'status:' in line_lower:
                                     loss_match = re.search(r"'loss':\s*([\d.]+)", line)
                                     status_match = re.search(r"'status':\s*'(\w+)'", line)
                                     if loss_match and status_match:
@@ -302,21 +302,21 @@ def _execute_docker_command(
                                         status_val = status_match.group(1)
                                         status_emoji = "✅" if status_val == "ok" else "⚠️"
                                         logger.info(f"📊 {status_emoji} Loss: {loss_val:.6f} | Status: {status_val}")
-                                    else:
-                                        logger.info(f"📊 Simod: {line[:200]}")
-                                elif 'discovering process model' in line_lower:
-                                    logger.info(f"🔍 Descubriendo modelo de proceso...")
-                                elif 'computing gateway probabilities' in line_lower:
-                                    logger.info(f"⚙️  Calculando probabilidades de gateways...")
-                                elif 'splitminer' in line_lower and 'running' in line_lower:
-                                    epsilon_match = re.search(r"--epsilon['\"]?\s*([\d.]+)", line)
-                                    if epsilon_match:
-                                        epsilon_val = float(epsilon_match.group(1))
-                                        logger.info(f"⚙️  SplitMiner ejecutándose (epsilon={epsilon_val:.4f})...")
-                                    else:
-                                        logger.info(f"⚙️  SplitMiner ejecutándose...")
                                 else:
-                                    logger.info(f"📝 Simod: {line[:150]}")
+                                    logger.info(f"📊 Simod: {line[:200]}")
+                            elif 'discovering process model' in line_lower:
+                                logger.info(f"🔍 Descubriendo modelo de proceso...")
+                            elif 'computing gateway probabilities' in line_lower:
+                                logger.info(f"⚙️  Calculando probabilidades de gateways...")
+                            elif 'splitminer' in line_lower and 'running' in line_lower:
+                                epsilon_match = re.search(r"--epsilon['\"]?\s*([\d.]+)", line)
+                                if epsilon_match:
+                                    epsilon_val = float(epsilon_match.group(1))
+                                    logger.info(f"⚙️  SplitMiner ejecutándose (epsilon={epsilon_val:.4f})...")
+                                else:
+                                    logger.info(f"⚙️  SplitMiner ejecutándose...")
+                            else:
+                                logger.info(f"📝 Simod: {line[:150]}")
                         last_progress_log = time.time()
                 else:
                     if time.time() - last_progress_log > progress_log_interval:
@@ -490,30 +490,30 @@ def run_simod_docker(
         start_time = time.time()
         returncode, stdout_lines = _execute_docker_command(docker_command, "")
         
-        elapsed_time = time.time() - start_time
-        minutes = int(elapsed_time // 60)
-        seconds = int(elapsed_time % 60)
-        
-        logger.info("-" * 80)
-        logger.info(f"⏱️  Tiempo total de ejecución: {minutes}m {seconds}s")
-        
-        if returncode == 0:
-            logger.info("✅ Simod ejecutado exitosamente")
+    elapsed_time = time.time() - start_time
+    minutes = int(elapsed_time // 60)
+    seconds = int(elapsed_time % 60)
+    
+    logger.info("-" * 80)
+    logger.info(f"⏱️  Tiempo total de ejecución: {minutes}m {seconds}s")
+    
+    if returncode == 0:
+        logger.info("✅ Simod ejecutado exitosamente")
             if attempt_num > 1:
                 logger.info(f"✅ Funcionó con: {strategy['description']}")
             # Mostrar resumen si hay información
-            if stdout_lines:
-                relevant_lines = [l for l in stdout_lines[-20:] if any(
-                    keyword in l.lower() for keyword in [
-                        'best_result', 'completed', 'finished', 'success', 'best'
-                    ]
-                )]
-                if relevant_lines:
-                    logger.info("📋 Últimas líneas relevantes:")
+        if stdout_lines:
+            relevant_lines = [l for l in stdout_lines[-20:] if any(
+                keyword in l.lower() for keyword in [
+                    'best_result', 'completed', 'finished', 'success', 'best'
+                ]
+            )]
+            if relevant_lines:
+                logger.info("📋 Últimas líneas relevantes:")
                     for line in relevant_lines[:5]:
-                        logger.info(f"   {line[:200]}")
-            return True
-        else:
+                    logger.info(f"   {line[:200]}")
+        return True
+    else:
             # Verificar si es un error de networking
             is_networking = _is_networking_error(stdout_lines)
             
@@ -524,8 +524,8 @@ def run_simod_docker(
                 continue
             else:
                 # No es networking o es el último intento
-                logger.error("❌ Simod falló")
-                logger.error(f"Código de salida: {returncode}")
+        logger.error("❌ Simod falló")
+        logger.error(f"Código de salida: {returncode}")
                 
                 if is_networking:
                     logger.error("")
@@ -554,24 +554,24 @@ def run_simod_docker(
                     logger.error("")
                 
                 # Mostrar líneas de error
-                if stdout_lines:
-                    error_lines = [l for l in stdout_lines if any(
-                        keyword in l.lower() for keyword in [
-                            'error', 'exception', 'traceback', 'failed', 'keyerror'
-                        ]
-                    )]
-                    if error_lines:
-                        logger.error("📋 Líneas de error encontradas:")
+        if stdout_lines:
+            error_lines = [l for l in stdout_lines if any(
+                keyword in l.lower() for keyword in [
+                    'error', 'exception', 'traceback', 'failed', 'keyerror'
+                ]
+            )]
+            if error_lines:
+                logger.error("📋 Líneas de error encontradas:")
                         for line in error_lines[-30:]:
-                            logger.error(f"   {line}")
-                    else:
-                        logger.error("📋 Últimas 50 líneas de salida:")
-                        for line in stdout_lines[-50:]:
-                            logger.error(f"   {line}")
+                    logger.error(f"   {line}")
+            else:
+                logger.error("📋 Últimas 50 líneas de salida:")
+                for line in stdout_lines[-50:]:
+                    logger.error(f"   {line}")
                 return False
     
     # No debería llegar aquí, pero por si acaso
-    return False
+        return False
 
 def find_and_copy_results(
     simod_output_dir: str,
