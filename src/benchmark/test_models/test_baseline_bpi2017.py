@@ -10,6 +10,7 @@ import sys
 import yaml
 import pandas as pd
 import numpy as np
+import argparse
 from typing import Dict, Any, Optional
 
 # Agregar src/ al PYTHONPATH para encontrar utils
@@ -194,31 +195,86 @@ def process_baseline_for_log(csv_path: str, log_name: str, project_root: str) ->
     logger.info(f"✅ Guardado en: {os.path.join(output_dir, metrics_filename)}")
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description='Test Baseline para BPI Challenge 2017')
+    parser.add_argument('--test', action='store_true', 
+                       help='Procesar específicamente el archivo de test (bpi2017_test.csv)')
+    parser.add_argument('--train', action='store_true',
+                       help='Procesar específicamente el archivo de train (bpi2017_train.csv)')
+    parser.add_argument('--csv', type=str, default=None,
+                       help='Ruta a un archivo CSV específico a procesar')
+    args = parser.parse_args()
+    
     logger.info(f"{'='*80}\nTEST BASELINE - BPI CHALLENGE 2017\n{'='*80}")
     
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    project_root = os.path.dirname(os.path.dirname(script_dir))
+    script_dir = os.path.dirname(os.path.abspath(__file__))  # src/benchmark/test_models/
+    benchmark_dir = os.path.dirname(script_dir)  # src/benchmark/
+    src_dir = os.path.dirname(benchmark_dir)  # src/
+    project_root = os.path.dirname(src_dir)  # proyecto raíz
     
-    benchmark_config = load_benchmark_config()
     logs_to_process = []
     
-    if benchmark_config:
-        logs_conf = benchmark_config.get("logs", {})
-        if benchmark_config.get("processing", {}).get("process_both_logs", True):
-            if logs_conf.get("full_log", {}).get("csv_path"): 
-                path = logs_conf["full_log"]["csv_path"]
-                if not os.path.isabs(path): path = os.path.join(project_root, path)
-                logs_to_process.append(path)
-            if logs_conf.get("sample_log", {}).get("csv_path"):
-                path = logs_conf["sample_log"]["csv_path"]
-                if not os.path.isabs(path): path = os.path.join(project_root, path)
-                logs_to_process.append(path)
+    # Si se especifica --test, procesar solo el archivo de test
+    if args.test:
+        test_path = os.path.join(project_root, "logs", "BPI2017", "processed", "bpi2017_test.csv")
+        if os.path.exists(test_path):
+            logs_to_process.append(test_path)
+            logger.info(f"🎯 Modo TEST: Procesando archivo de test")
+        else:
+            logger.error(f"❌ No se encontró el archivo de test: {test_path}")
+            return
     
-    if not logs_to_process:
-        # Fallback
-        default_full = os.path.join(project_root, "logs/BPI2017/bpi-challenge-2017.csv")
-        if os.path.exists(default_full): logs_to_process.append(default_full)
+    # Si se especifica --train, procesar solo el archivo de train
+    elif args.train:
+        train_path = os.path.join(project_root, "logs", "BPI2017", "processed", "bpi2017_train.csv")
+        if os.path.exists(train_path):
+            logs_to_process.append(train_path)
+            logger.info(f"🎯 Modo TRAIN: Procesando archivo de train")
+        else:
+            logger.error(f"❌ No se encontró el archivo de train: {train_path}")
+            return
+    
+    # Si se especifica --csv, procesar ese archivo
+    elif args.csv:
+        csv_path = args.csv
+        if not os.path.isabs(csv_path):
+            csv_path = os.path.join(project_root, csv_path)
+        if os.path.exists(csv_path):
+            logs_to_process.append(csv_path)
+            logger.info(f"🎯 Procesando archivo CSV especificado: {csv_path}")
+        else:
+            logger.error(f"❌ No se encontró el archivo: {csv_path}")
+            return
+    
+    # Si no se especifica nada, usar la lógica original (config o fallback)
+    else:
+        benchmark_config = load_benchmark_config()
         
+        if benchmark_config:
+            logs_conf = benchmark_config.get("logs", {})
+            if benchmark_config.get("processing", {}).get("process_both_logs", True):
+                if logs_conf.get("full_log", {}).get("csv_path"): 
+                    path = logs_conf["full_log"]["csv_path"]
+                    if not os.path.isabs(path): path = os.path.join(project_root, path)
+                    logs_to_process.append(path)
+                if logs_conf.get("sample_log", {}).get("csv_path"):
+                    path = logs_conf["sample_log"]["csv_path"]
+                    if not os.path.isabs(path): path = os.path.join(project_root, path)
+                    logs_to_process.append(path)
+        
+        if not logs_to_process:
+            # Fallback: buscar archivo de test por defecto
+            test_path = os.path.join(project_root, "logs", "BPI2017", "processed", "bpi2017_test.csv")
+            if os.path.exists(test_path):
+                logs_to_process.append(test_path)
+                logger.info(f"📋 Usando archivo de test por defecto: {test_path}")
+            else:
+                # Último fallback: archivo completo
+                default_full = os.path.join(project_root, "logs/BPI2017/bpi-challenge-2017.csv")
+                if os.path.exists(default_full): 
+                    logs_to_process.append(default_full)
+                    logger.info(f"📋 Usando archivo completo por defecto: {default_full}")
+        
+    # Procesar los archivos encontrados
     for csv_path in logs_to_process:
         if os.path.exists(csv_path):
             log_name = os.path.splitext(os.path.basename(csv_path))[0].replace(".csv", "").replace(".xes", "")
