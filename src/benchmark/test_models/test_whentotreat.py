@@ -13,12 +13,15 @@ import pandas as pd
 import numpy as np
 import yaml
 import pickle
+import argparse
+import time
 from sklearn.preprocessing import MinMaxScaler
 from typing import Optional, Dict, Any
 
 # Agregar directorios al path (IMPORTANTE: hacer esto PRIMERO para evitar conflictos)
-script_dir = os.path.dirname(os.path.abspath(__file__))  # src/benchmark
-src_dir = os.path.dirname(script_dir)  # src/
+script_dir = os.path.dirname(os.path.abspath(__file__))  # src/benchmark/test_models/
+benchmark_dir = os.path.dirname(script_dir)  # src/benchmark/
+src_dir = os.path.dirname(benchmark_dir)  # src/
 project_root = os.path.dirname(src_dir)  # root
 if src_dir not in sys.path:
     sys.path.insert(0, src_dir)
@@ -26,6 +29,12 @@ if src_dir not in sys.path:
 # Importar utils del proyecto ACTUAL primero (antes de agregar WhenToTreat al path)
 from utils.config import load_config
 from utils.logger_utils import setup_logger
+
+# Agregar benchmark al path para importar benchmark_evaluator
+benchmark_dir = os.path.dirname(script_dir)  # src/benchmark/
+if benchmark_dir not in sys.path:
+    sys.path.insert(0, benchmark_dir)
+
 from benchmark_evaluator import BenchmarkEvaluator
 from test_baseline_bpi2017 import load_bpi2017_data, estimate_propensity_score, prepare_baseline_dataframe
 
@@ -311,18 +320,24 @@ def apply_wtt_policy(
     feature_cols: list,
     case_col: str,
     conf_threshold: float = 0.0
-) -> pd.DataFrame:
+) -> tuple:
     """
     Aplica la política de WhenToTreat: intervenir si TE >= threshold.
     
     Args:
         conf_threshold: Threshold de confidence para intervenir (default: 0.0 = intervenir si TE > 0)
+    
+    Returns:
+        Tupla (case_decisions, latency_ms) con las decisiones y la latencia en milisegundos
     """
     logger.info(f"🔮 Generando predicciones con threshold={conf_threshold}...")
     
     # Preparar features
     X = df_test_features[feature_cols].values
     X_scaled = scaler.transform(X)
+    
+    # Medir tiempo de inferencia
+    start_time = time.time()
     
     # Estimar Treatment Effects
     try:
@@ -350,6 +365,11 @@ def apply_wtt_policy(
         te = np.zeros(len(X_scaled))
         logger.warning("⚠️  Usando TE=0 como fallback")
     
+    # Calcular latencia total (tiempo total / número de casos)
+    end_time = time.time()
+    total_time_ms = (end_time - start_time) * 1000  # Convertir a milisegundos
+    latency_ms = total_time_ms / len(X_scaled) if len(X_scaled) > 0 else 0.0
+    
     # Aplicar política: intervenir si TE >= threshold
     action_model = (te >= conf_threshold).astype(int)
     
@@ -362,18 +382,105 @@ def apply_wtt_policy(
     })
     
     logger.info(f"✅ Predicciones generadas: {action_model.sum()}/{len(action_model)} casos con intervención")
+    logger.info(f"⏱️  Latencia promedio: {latency_ms:.4f} ms por caso (total: {total_time_ms:.2f} ms para {len(X_scaled)} casos)")
     
-    return case_decisions
+    return case_decisions, latency_ms
 
 
 def main():
+    parser = argparse.ArgumentParser(description='Evaluación WhenToTreat para BPI Challenge 2017')
+    parser.add_argument('--test', action='store_true', 
+                       help='Usar archivos procesados de train/test (bpi2017_train.csv y bpi2017_test.csv)')
+    args = parser.parse_args()
+    
     logger.info(f"{'='*80}\nEVALUACIÓN FINAL: WhenToTreat vs BASELINE\n{'='*80}")
     
-    # 1. Configuración y Rutas
-    config = load_config()
-    log_path = config["log_config"]["log_path"]
-    if not os.path.isabs(log_path):
-        log_path = os.path.join(project_root, log_path)
+    # 1. Determinar rutas de datos
+    if args.test:
+        # Usar archivos procesados de train/test
+        train_path = os.path.join(project_root, "logs", "BPI2017", "processed", "bpi2017_train.csv")
+        test_path = os.path.join(project_root, "logs", "BPI2017", "processed", "bpi2017_test.csv")
+        
+        if not os.path.exists(train_path):
+            logger.error(f"❌ No se encontró el archivo de train: {train_path}")
+            return
+        if not os.path.exists(test_path):
+            logger.error(f"❌ No se encontró el archivo de test: {test_path}")
+            return
+        
+        logger.info(f"🎯 Modo TEST: Usando archivos procesados")
+        logger.info(f"📂 Train: {train_path}")
+        logger.info(f"📂 Test: {test_path}")
+        
+        # Cargar datos de train y test por separado
+        logger.info("📂 Cargando datos de entrenamiento...")
+        df_train_events = load_bpi2017_data(train_path)
+        logger.info("📂 Cargando datos de test...")
+        df_test_events = load_bpi2017_data(test_path)
+        
+        # Preparar features y resultados para train
+        df_train_results = prepare_baseline_dataframe(df_train_events)
+        df_train_features, case_col = prepare_wtt_features(df_train_events)
+        
+        # Preparar features y resultados para test
+        df_test_results = prepare_baseline_dataframe(df_test_events)
+        df_test_features, _ = prepare_wtt_features(df_test_events)
+        
+        # Merge features con resultados para train
+        df_train_features = df_train_features.merge(
+            df_train_results[['case_id', 'treatment_observed', 'outcome_observed']],
+            left_on=case_col,
+            right_on='case_id',
+            how='inner'
+        )
+        
+        # Merge features con resultados para test
+        df_test_features = df_test_features.merge(
+            df_test_results[['case_id', 'treatment_observed', 'outcome_observed']],
+            left_on=case_col,
+            right_on='case_id',
+            how='inner'
+        )
+        
+        df_train = df_train_features.copy()
+        df_test = df_test_features.copy()
+        
+        logger.info(f"📊 Train: {len(df_train)} casos para entrenamiento")
+        logger.info(f"📊 Test: {len(df_test)} casos para evaluación")
+        
+    else:
+        # Lógica original: usar config y hacer split interno
+        config = load_config()
+        log_path = config["log_config"]["log_path"]
+        if not os.path.isabs(log_path):
+            log_path = os.path.join(project_root, log_path)
+        
+        logger.info(f"📂 Cargando datos desde: {log_path}")
+        df_events = load_bpi2017_data(log_path)
+        
+        # Preparar DataFrame Base (Ground Truth & Propensity)
+        df_results = prepare_baseline_dataframe(df_events)
+        
+        # Preparar Features para WhenToTreat
+        df_features, case_col = prepare_wtt_features(df_events)
+        
+        # Merge features con resultados para tener treatment y outcome (solo para labels, no como features)
+        df_features = df_features.merge(
+            df_results[['case_id', 'treatment_observed', 'outcome_observed']],
+            left_on=case_col,
+            right_on='case_id',
+            how='inner'
+        )
+        
+        # Split train/test (temporal: primeros 80% para train, últimos 20% para test)
+        df_features = df_features.sort_values(case_col)
+        n_train = int(len(df_features) * 0.8)
+        df_train = df_features.iloc[:n_train].copy()
+        df_test = df_features.iloc[n_train:].copy()
+        
+        df_test_results = df_results[df_results['case_id'].isin(df_test[case_col].values)].copy()
+        
+        logger.info(f"📊 Split: {len(df_train)} casos para entrenamiento, {len(df_test)} casos para evaluación")
     
     # Ruta para guardar/cargar modelo entrenado
     model_dir = os.path.join(project_root, "results/benchmark/whentotreat")
@@ -381,36 +488,6 @@ def main():
     model_path = os.path.join(model_dir, "wtt_model.pkl")
     scaler_path = os.path.join(model_dir, "wtt_scaler.pkl")
     features_path = os.path.join(model_dir, "wtt_features.pkl")
-    
-    # 2. Cargar Datos
-    logger.info(f"📂 Cargando datos desde: {log_path}")
-    df_events = load_bpi2017_data(log_path)
-    
-    # 3. Preparar DataFrame Base (Ground Truth & Propensity)
-    df_results = prepare_baseline_dataframe(df_events)
-    
-    # 4. Preparar Features para WhenToTreat
-    df_features, case_col = prepare_wtt_features(df_events)
-    
-    # Merge features con resultados para tener treatment y outcome (solo para labels, no como features)
-    df_features = df_features.merge(
-        df_results[['case_id', 'treatment_observed', 'outcome_observed']],
-        left_on=case_col,
-        right_on='case_id',
-        how='inner'
-    )
-    # Guardar labels separadamente (no deben usarse como features)
-    df_labels = df_features[['case_id', 'treatment_observed', 'outcome_observed']].copy()
-    
-    # 5. Split train/test (temporal: primeros 80% para train, últimos 20% para test)
-    # Ordenar por case_id para split temporal
-    df_features = df_features.sort_values(case_col)
-    n_train = int(len(df_features) * 0.8)
-    df_train = df_features.iloc[:n_train].copy()
-    df_test = df_features.iloc[n_train:].copy()
-    
-    logger.info(f"📊 Split: {len(df_train)} casos para entrenamiento, {len(df_test)} casos para evaluación")
-    logger.info("   (Nota: Evaluación sobre conjunto de test para evitar data leakage)")
     
     # 6. Entrenar o cargar modelo
     model = None
@@ -456,7 +533,7 @@ def main():
     # Usar threshold=0.0 por defecto (intervenir si TE > 0)
     # Se puede optimizar más adelante
     conf_threshold = 0.0
-    model_decisions = apply_wtt_policy(
+    model_decisions, latency_ms = apply_wtt_policy(
         df_test,
         model,
         scaler,
@@ -466,9 +543,11 @@ def main():
     )
     
     # 8. Merge decisiones del modelo en df_results
-    # Filtrar df_results para solo casos de test (evitar data leakage)
-    test_case_ids = df_test[case_col].values
-    df_test_results = df_results[df_results['case_id'].isin(test_case_ids)].copy()
+    # Si usamos archivos procesados, df_test_results ya está preparado
+    if not args.test:
+        # Filtrar df_results para solo casos de test (evitar data leakage)
+        test_case_ids = df_test[case_col].values
+        df_test_results = df_results[df_results['case_id'].isin(test_case_ids)].copy()
     
     if 'action_model' in df_test_results.columns:
         del df_test_results['action_model']
@@ -490,21 +569,28 @@ def main():
     evaluator = BenchmarkEvaluator()
     metrics = evaluator.evaluate(df_final, training_complexity="Media (CPU - Forest)")
     
+    # Agregar latencia a las métricas
+    metrics['latency_ms'] = latency_ms
+    
     # 10. Comparar con Baseline
-    baseline_csv = os.path.join(project_root, "results/benchmark/bpi-challenge-2017-sample/baseline_metrics.csv")
-    if not os.path.exists(baseline_csv):
-        baseline_csv = os.path.join(project_root, "results/benchmark/baseline_metrics.csv")
+    # Si usamos archivos procesados, buscar baseline en bpi2017_test
+    if args.test:
+        baseline_csv = os.path.join(project_root, "results/benchmark/bpi2017_test/baseline_metrics.csv")
+    else:
+        baseline_csv = os.path.join(project_root, "results/benchmark/bpi-challenge-2017-sample/baseline_metrics.csv")
+        if not os.path.exists(baseline_csv):
+            baseline_csv = os.path.join(project_root, "results/benchmark/baseline_metrics.csv")
     
     baseline_gain = 0.0
     if os.path.exists(baseline_csv):
         try:
             base_df = pd.read_csv(baseline_csv)
             baseline_gain = base_df['net_gain'].iloc[0]
-            logger.info(f"📉 Baseline Net Gain cargado: ${baseline_gain:.2f}")
-        except:
-            logger.warning("No se pudo leer baseline_metrics.csv, asumiendo 0 para Lift")
+            logger.info(f"📉 Baseline Net Gain cargado desde {baseline_csv}: ${baseline_gain:.2f}")
+        except Exception as e:
+            logger.warning(f"No se pudo leer baseline_metrics.csv: {e}, asumiendo 0 para Lift")
     else:
-        logger.warning("Archivo baseline_metrics.csv no encontrado.")
+        logger.warning(f"Archivo baseline_metrics.csv no encontrado en: {baseline_csv}")
     
     # Recalcular Lift real
     model_gain = metrics['net_gain']
@@ -523,10 +609,15 @@ def main():
     print(f"🛡️  % Violaciones:         {metrics['violation_percentage']:.2f}%")
     if metrics.get('auc_qini') is not None:
         print(f"📈 AUC-Qini:              {metrics['auc_qini']:.4f}")
+    if metrics.get('latency_ms') is not None:
+        print(f"⏱️  Latencia:              {metrics['latency_ms']:.4f} ms/caso")
     print("="*60 + "\n")
     
     # 12. Guardar
-    out_dir = os.path.join(project_root, "results/benchmark/whentotreat")
+    if args.test:
+        out_dir = os.path.join(project_root, "results/benchmark/bpi2017_test")
+    else:
+        out_dir = os.path.join(project_root, "results/benchmark/whentotreat")
     os.makedirs(out_dir, exist_ok=True)
     pd.DataFrame([metrics]).to_csv(os.path.join(out_dir, "whentotreat_metrics.csv"), index=False)
     logger.info(f"✅ Resultados guardados en: {out_dir}")
