@@ -1,0 +1,2 @@
+net_gain,lift_vs_bau,intervention_percentage,violation_percentage,auc_qini,latency_ms,training_complexity
+9.973585978046424,-21.374316434710984,23.791388977044324,0.0,-5350.683380937218,2.1298867639985324,Alta (CPU - OrthoForest)
