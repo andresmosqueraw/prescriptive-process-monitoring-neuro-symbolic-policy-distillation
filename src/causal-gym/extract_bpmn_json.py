@@ -14,6 +14,8 @@ import yaml
 import time
 import threading
 import re
+import argparse
+import random
 from pathlib import Path
 from typing import Dict, Any, Optional, Tuple
 from datetime import datetime
@@ -23,6 +25,69 @@ from utils.logger_utils import setup_logger
 
 # Configurar logger
 logger = setup_logger(__name__)
+
+def get_fast_config() -> Dict[str, Any]:
+    """
+    Retorna configuración optimizada para ejecución rápida de Simod.
+    Reduce iteraciones y evaluaciones para acelerar el proceso.
+    
+    Returns:
+        Diccionario con configuración rápida
+    """
+    return {
+        "log_config": {
+            "column_mapping": {
+                "case": "caseid",
+                "activity": "task",
+                "resource": "user",
+                "start_time": "start_timestamp",
+                "end_time": "end_timestamp"
+            }
+        },
+        "simod_config": {
+            "version": 5,
+            "common": {"discover_data_attributes": False},  # Desactivado para velocidad
+            "preprocessing": {"enable_time_concurrency_threshold": 0.0},
+            "control_flow": {
+                "optimization_metric": "two_gram_distance",
+                "num_iterations": 3,  # Reducido de 10 a 3
+                "num_evaluations_per_iteration": 1,  # Reducido de 3 a 1
+                "gateway_probabilities": "discovery",
+                "mining_algorithm": "sm2",
+                "epsilon": 0.1,  # Valor fijo en lugar de rango
+                "eta": 0.5,  # Valor fijo en lugar de rango
+                "replace_or_joins": False,  # Valor fijo
+                "prioritize_parallelism": True  # Valor fijo
+            },
+            "resource_model": {
+                "optimization_metric": "circadian_emd",
+                "num_iterations": 2,  # Reducido de 5 a 2
+                "num_evaluations_per_iteration": 1,  # Reducido de 3 a 1
+                "discover_prioritization_rules": False,
+                "discover_batching_rules": False,
+                "resource_profiles": {
+                    "discovery_type": "differentiated",
+                    "granularity": 60,
+                    "confidence": 0.65,  # Valor fijo en lugar de rango
+                    "support": 0.1,  # Valor fijo en lugar de rango
+                    "participation": 0.4
+                }
+            },
+            "extraneous_activity_delays": {
+                "discovery_method": "eclipse-aware",
+                "num_iterations": 1
+            }
+        },
+        "script_config": {
+            "output_dir": None,
+            "temp_dir_prefix": ".simod_temp",
+            "docker": {
+                "image": "nokal/simod",
+                "user_id": None,
+                "group_id": None
+            }
+        }
+    }
 
 def get_default_config() -> Dict[str, Any]:
     """
@@ -162,6 +227,92 @@ def create_config_yaml(
     logger.info(f"Archivo de configuración creado: {config_path}")
     return config_path
 
+def _log_simod_line(line: str, logger) -> None:
+    """
+    Función auxiliar para loggear líneas de Simod de forma inteligente.
+    
+    Args:
+        line: Línea de output de Simod
+        logger: Logger a usar
+    """
+    line_lower = line.lower()
+    
+    # Patrones a filtrar (muy verbosos) - reducido para capturar más
+    skip_patterns = [
+        'posixpath(',
+    ]
+    
+    # Palabras clave importantes (expandido para capturar simulaciones)
+    important_keywords = [
+        'iteration', 'optimization', 'discovering', 
+        'computing', 'control-flow', 'resource',
+        'error', 'exception', 'traceback', 'failed',
+        'best_result', 'completed', 'finished',
+        'splitminer', 'gateway probabilities',
+        'loss:', 'status:', 'best',
+        'starting', 'loading', 'processing', 'reading',
+        'discovered', 'mining', 'evaluating', 'training',
+        'phase', 'step', 'stage',
+        'simulating', 'simulation', 'simulated',  # Agregado para capturar simulaciones
+        'cases', 'workers', 'progress'  # Agregado para progreso
+    ]
+    
+    # Filtrar líneas muy verbosas
+    if any(pattern in line_lower for pattern in skip_patterns):
+        return  # Saltar estas líneas
+    
+    # Si tiene palabras clave importantes, siempre mostrarla
+    if any(keyword in line_lower for keyword in important_keywords):
+        # Log líneas importantes con formato especial
+        if 'control-flow optimization iteration' in line_lower:
+            match = re.search(r'iteration (\d+)', line_lower)
+            if match:
+                logger.info(f"🔄 Iteración {match.group(1)} de optimización de control-flow")
+        elif 'loss:' in line_lower or 'status:' in line_lower:
+            loss_match = re.search(r"'loss':\s*([\d.]+)", line)
+            status_match = re.search(r"'status':\s*'(\w+)'", line)
+            if loss_match and status_match:
+                loss_val = float(loss_match.group(1))
+                status_val = status_match.group(1)
+                status_emoji = "✅" if status_val == "ok" else "⚠️"
+                logger.info(f"📊 {status_emoji} Loss: {loss_val:.6f} | Status: {status_val}")
+            else:
+                logger.info(f"📊 Simod: {line[:200]}")
+        elif 'discovering process model' in line_lower or 'discovering' in line_lower:
+            logger.info(f"🔍 {line[:200]}")
+        elif 'computing gateway probabilities' in line_lower:
+            logger.info(f"⚙️  Calculando probabilidades de gateways...")
+        elif 'splitminer' in line_lower and 'running' in line_lower:
+            epsilon_match = re.search(r"--epsilon['\"]?\s*([\d.]+)", line)
+            if epsilon_match:
+                epsilon_val = float(epsilon_match.group(1))
+                logger.info(f"⚙️  SplitMiner ejecutándose (epsilon={epsilon_val:.4f})...")
+            else:
+                logger.info(f"⚙️  SplitMiner ejecutándose...")
+        elif 'error' in line_lower or 'exception' in line_lower or 'failed' in line_lower:
+            logger.warning(f"⚠️  {line[:250]}")
+        elif 'completed' in line_lower or 'finished' in line_lower:
+            logger.info(f"✅ {line[:200]}")
+        elif 'starting' in line_lower or 'loading' in line_lower:
+            logger.info(f"🚀 {line[:180]}")
+        elif 'processing' in line_lower or 'reading' in line_lower:
+            logger.info(f"📖 {line[:180]}")
+        elif 'simulating' in line_lower or 'simulation' in line_lower:
+            # Extraer número de casos si está presente
+            cases_match = re.search(r'num_simulation_cases[=:]?\s*(\d+)', line_lower)
+            if cases_match:
+                num_cases = int(cases_match.group(1))
+                logger.info(f"🎲 Simulando {num_cases:,} casos... (esto puede tomar varios minutos)")
+            else:
+                logger.info(f"🎲 {line[:180]}")
+        else:
+            logger.info(f"📝 {line[:200]}")
+    else:
+        # Mostrar una de cada 10 líneas normales para tener visibilidad
+        # pero no saturar el log
+        if random.randint(1, 10) == 1:  # 10% de las líneas normales
+            logger.debug(f"   {line[:150]}")
+
 def check_docker_status() -> Tuple[bool, str]:
     """
     Verifica el estado de Docker y retorna diagnóstico.
@@ -240,26 +391,32 @@ def _execute_docker_command(
     stdout_lines = []
     start_time = time.time()
     last_progress_log = time.time()
-    progress_log_interval = 30
+    last_heartbeat = time.time()
+    progress_log_interval = 10  # Reducido de 30 a 10 segundos
+    heartbeat_interval = 15  # Mostrar heartbeat cada 15 segundos si no hay output
+    lines_processed = 0
+    last_lines_count = 0
     
-    # Patrones a filtrar (muy verbosos)
+    # Patrones a filtrar (muy verbosos) - solo los más repetitivos
     skip_patterns = [
-        'simulation settings:',
         'prosimossettings(',
         'posixpath(',
-        'finished serializing log',
-        'info:root:running java',
     ]
     
-    # Palabras clave importantes
+    # Palabras clave importantes (expandido)
     important_keywords = [
         'iteration', 'optimization', 'discovering', 
         'computing', 'control-flow', 'resource',
         'error', 'exception', 'traceback', 'failed',
         'best_result', 'completed', 'finished',
         'splitminer', 'gateway probabilities',
-        'loss:', 'status:', 'best'
+        'loss:', 'status:', 'best',
+        'starting', 'loading', 'processing', 'reading',
+        'discovered', 'mining', 'evaluating', 'training',
+        'phase', 'step', 'stage'
     ]
+    
+    logger.info("📡 Iniciando captura de logs de Simod...")
     
     try:
         while True:
@@ -270,11 +427,9 @@ def _execute_docker_command(
                         line = line.strip()
                         if line:
                             stdout_lines.append(line)
+                            lines_processed += 1
                             if show_output:
-                                line_lower = line.lower()
-                                if any(keyword in line_lower for keyword in important_keywords):
-                                    if not any(pattern in line_lower for pattern in skip_patterns):
-                                        logger.info(f"📝 Simod: {line[:200]}")
+                                _log_simod_line(line, logger)
                 break
             
             try:
@@ -283,53 +438,38 @@ def _execute_docker_command(
                     line = line.strip()
                     if line:
                         stdout_lines.append(line)
+                        lines_processed += 1
+                        last_heartbeat = time.time()  # Resetear heartbeat cuando hay output
+                        
                         if show_output:
-                        line_lower = line.lower()
-                            # Filtrar líneas verbosas
-                        if any(pattern in line_lower for pattern in skip_patterns):
-                                pass  # Saltar estas líneas
-                            elif any(keyword in line_lower for keyword in important_keywords):
-                        # Log líneas importantes
-                            if 'control-flow optimization iteration' in line_lower:
-                                match = re.search(r'iteration (\d+)', line_lower)
-                                if match:
-                                        logger.info(f"🔄 Iteración {match.group(1)} de optimización de control-flow")
-                            elif 'loss:' in line_lower or 'status:' in line_lower:
-                                    loss_match = re.search(r"'loss':\s*([\d.]+)", line)
-                                    status_match = re.search(r"'status':\s*'(\w+)'", line)
-                                    if loss_match and status_match:
-                                        loss_val = float(loss_match.group(1))
-                                        status_val = status_match.group(1)
-                                        status_emoji = "✅" if status_val == "ok" else "⚠️"
-                                        logger.info(f"📊 {status_emoji} Loss: {loss_val:.6f} | Status: {status_val}")
-                                else:
-                                    logger.info(f"📊 Simod: {line[:200]}")
-                            elif 'discovering process model' in line_lower:
-                                logger.info(f"🔍 Descubriendo modelo de proceso...")
-                            elif 'computing gateway probabilities' in line_lower:
-                                logger.info(f"⚙️  Calculando probabilidades de gateways...")
-                            elif 'splitminer' in line_lower and 'running' in line_lower:
-                                epsilon_match = re.search(r"--epsilon['\"]?\s*([\d.]+)", line)
-                                if epsilon_match:
-                                    epsilon_val = float(epsilon_match.group(1))
-                                    logger.info(f"⚙️  SplitMiner ejecutándose (epsilon={epsilon_val:.4f})...")
-                                else:
-                                    logger.info(f"⚙️  SplitMiner ejecutándose...")
-                            else:
-                                logger.info(f"📝 Simod: {line[:150]}")
+                            _log_simod_line(line, logger)
                         last_progress_log = time.time()
                 else:
-                    if time.time() - last_progress_log > progress_log_interval:
-                        elapsed = time.time() - start_time
+                    # No hay nueva línea, verificar si debemos mostrar progreso
+                    current_time = time.time()
+                    elapsed = current_time - start_time
+                    
+                    # Heartbeat: mostrar que está vivo cada X segundos
+                    if current_time - last_heartbeat > heartbeat_interval:
                         minutes = int(elapsed // 60)
                         seconds = int(elapsed % 60)
-                        logger.info(f"⏱️  Tiempo transcurrido: {minutes}m {seconds}s...")
-                        last_progress_log = time.time()
-            except Exception:
+                        new_lines = lines_processed - last_lines_count
+                        logger.info(f"💓 Simod ejecutándose... ({minutes}m {seconds}s | {lines_processed} líneas procesadas | +{new_lines} nuevas)")
+                        last_heartbeat = current_time
+                        last_lines_count = lines_processed
+                    
+                    # Progreso periódico más detallado
+                    if current_time - last_progress_log > progress_log_interval:
+                        minutes = int(elapsed // 60)
+                        seconds = int(elapsed % 60)
+                        logger.info(f"⏱️  Tiempo transcurrido: {minutes}m {seconds}s | Total líneas: {lines_processed}")
+                        last_progress_log = current_time
+            except Exception as e:
+                logger.debug(f"Excepción leyendo línea: {e}")
                 time.sleep(0.1)
                 continue
             
-            time.sleep(0.1)
+            time.sleep(0.05)  # Reducido de 0.1 a 0.05 para ser más responsivo
     except KeyboardInterrupt:
         logger.warning("⚠️  Interrupción detectada, terminando proceso Docker...")
         process.terminate()
@@ -490,30 +630,30 @@ def run_simod_docker(
         start_time = time.time()
         returncode, stdout_lines = _execute_docker_command(docker_command, "")
         
-    elapsed_time = time.time() - start_time
-    minutes = int(elapsed_time // 60)
-    seconds = int(elapsed_time % 60)
-    
-    logger.info("-" * 80)
-    logger.info(f"⏱️  Tiempo total de ejecución: {minutes}m {seconds}s")
-    
-    if returncode == 0:
-        logger.info("✅ Simod ejecutado exitosamente")
+        elapsed_time = time.time() - start_time
+        minutes = int(elapsed_time // 60)
+        seconds = int(elapsed_time % 60)
+        
+        logger.info("-" * 80)
+        logger.info(f"⏱️  Tiempo total de ejecución: {minutes}m {seconds}s")
+        
+        if returncode == 0:
+            logger.info("✅ Simod ejecutado exitosamente")
             if attempt_num > 1:
                 logger.info(f"✅ Funcionó con: {strategy['description']}")
             # Mostrar resumen si hay información
-        if stdout_lines:
-            relevant_lines = [l for l in stdout_lines[-20:] if any(
-                keyword in l.lower() for keyword in [
-                    'best_result', 'completed', 'finished', 'success', 'best'
-                ]
-            )]
-            if relevant_lines:
-                logger.info("📋 Últimas líneas relevantes:")
+            if stdout_lines:
+                relevant_lines = [l for l in stdout_lines[-20:] if any(
+                    keyword in l.lower() for keyword in [
+                        'best_result', 'completed', 'finished', 'success', 'best'
+                    ]
+                )]
+                if relevant_lines:
+                    logger.info("📋 Últimas líneas relevantes:")
                     for line in relevant_lines[:5]:
-                    logger.info(f"   {line[:200]}")
-        return True
-    else:
+                        logger.info(f"   {line[:200]}")
+            return True
+        else:
             # Verificar si es un error de networking
             is_networking = _is_networking_error(stdout_lines)
             
@@ -524,8 +664,8 @@ def run_simod_docker(
                 continue
             else:
                 # No es networking o es el último intento
-        logger.error("❌ Simod falló")
-        logger.error(f"Código de salida: {returncode}")
+                logger.error("❌ Simod falló")
+                logger.error(f"Código de salida: {returncode}")
                 
                 if is_networking:
                     logger.error("")
@@ -554,24 +694,24 @@ def run_simod_docker(
                     logger.error("")
                 
                 # Mostrar líneas de error
-        if stdout_lines:
-            error_lines = [l for l in stdout_lines if any(
-                keyword in l.lower() for keyword in [
-                    'error', 'exception', 'traceback', 'failed', 'keyerror'
-                ]
-            )]
-            if error_lines:
-                logger.error("📋 Líneas de error encontradas:")
+                if stdout_lines:
+                    error_lines = [l for l in stdout_lines if any(
+                        keyword in l.lower() for keyword in [
+                            'error', 'exception', 'traceback', 'failed', 'keyerror'
+                        ]
+                    )]
+                    if error_lines:
+                        logger.error("📋 Líneas de error encontradas:")
                         for line in error_lines[-30:]:
-                    logger.error(f"   {line}")
-            else:
-                logger.error("📋 Últimas 50 líneas de salida:")
-                for line in stdout_lines[-50:]:
-                    logger.error(f"   {line}")
+                            logger.error(f"   {line}")
+                    else:
+                        logger.error("📋 Últimas 50 líneas de salida:")
+                        for line in stdout_lines[-50:]:
+                            logger.error(f"   {line}")
                 return False
     
     # No debería llegar aquí, pero por si acaso
-        return False
+    return False
 
 def find_and_copy_results(
     simod_output_dir: str,
@@ -660,7 +800,8 @@ def find_and_copy_results(
 
 def extract_bpmn_json(
     log_path: str,
-    config: Optional[Dict[str, Any]] = None
+    config: Optional[Dict[str, Any]] = None,
+    fast_mode: bool = False
 ) -> bool:
     """
     Función principal: extrae BPMN y JSON desde un log usando Simod.
@@ -668,12 +809,15 @@ def extract_bpmn_json(
     Args:
         log_path: Ruta al archivo CSV, XES o XES.GZ del log
         config: Diccionario de configuración (si None, se carga desde config.yaml)
+        fast_mode: Si True, usa configuración optimizada para velocidad (menor calidad)
     
     Returns:
         True si la extracción fue exitosa, False en caso contrario
     """
     logger.info("=" * 80)
     logger.info("EXTRACCIÓN DE BPMN Y JSON CON SIMOD")
+    if fast_mode:
+        logger.info("⚡ MODO RÁPIDO ACTIVADO (menor calidad, mayor velocidad)")
     logger.info("=" * 80)
     
     # Cargar configuración si no se proporciona
@@ -682,6 +826,18 @@ def extract_bpmn_json(
         if config is None:
             logger.error("No se pudo cargar la configuración")
             return False
+    
+    # Si fast_mode está activado, reemplazar simod_config con configuración rápida
+    if fast_mode:
+        fast_config = get_fast_config()
+        # Mantener log_config y script_config del config original, pero usar simod_config rápido
+        config = config.copy()
+        config["simod_config"] = fast_config["simod_config"]
+        logger.info("⚡ Usando configuración optimizada para velocidad")
+        logger.info("   - Control flow: 3 iteraciones (vs 10), 1 evaluación/iteración (vs 3)")
+        logger.info("   - Resource model: 2 iteraciones (vs 5), 1 evaluación/iteración (vs 3)")
+        logger.info("   - Valores fijos en lugar de rangos (menos búsqueda)")
+        logger.info("   - discover_data_attributes: desactivado")
     
     log_config = config.get("log_config", {})
     simod_config = config.get("simod_config", {})
@@ -857,6 +1013,8 @@ def extract_bpmn_json(
             preprocess_reasons.append("limpiar espacios en blanco de columnas de texto")
             
             if needs_preprocessing:
+                if fast_mode:
+                    logger.info("⚡ Modo rápido: preprocesamiento optimizado")
                 logger.info(f"🔧 Preprocesando CSV: {', '.join(preprocess_reasons)}")
                 import pandas as pd
                 logger.info(f"   Leyendo CSV: {os.path.basename(log_path)}")
@@ -961,38 +1119,57 @@ def extract_bpmn_json(
 
 def main() -> None:
     """Función principal para ejecutar desde línea de comandos"""
+    parser = argparse.ArgumentParser(description='Extraer BPMN y JSON desde un log usando Simod')
+    parser.add_argument('log_path', nargs='?', default=None,
+                       help='Ruta al archivo del log (CSV, XES o XES.GZ)')
+    parser.add_argument('--train', action='store_true',
+                       help='Usar archivo de train procesado (bpi2017_train.csv)')
+    parser.add_argument('--test', action='store_true',
+                       help='Usar archivo de test procesado (bpi2017_test.csv)')
+    parser.add_argument('--fast', action='store_true',
+                       help='Modo rápido: reduce iteraciones y evaluaciones para acelerar (menor calidad)')
+    args = parser.parse_args()
+    
     # Cargar configuración
     config = load_config()
     if config is None:
         logger.error("No se pudo cargar la configuración")
         sys.exit(1)
     
+    # Encontrar directorio raíz del proyecto
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    src_dir = os.path.dirname(script_dir)  # src/
+    project_root = os.path.dirname(src_dir)  # proyecto raíz
+    
     log_config = config.get("log_config", {})
     
-    # Obtener ruta del log: primero de argumentos, luego de config.yaml
-    if len(sys.argv) >= 2:
-        log_path = sys.argv[1]
+    # Determinar ruta del log
+    if args.train:
+        log_path = os.path.join(project_root, "logs", "BPI2017", "processed", "bpi2017_train.csv")
+        logger.info(f"🎯 Modo TRAIN: Usando archivo de train: {log_path}")
+    elif args.test:
+        log_path = os.path.join(project_root, "logs", "BPI2017", "processed", "bpi2017_test.csv")
+        logger.info(f"🎯 Modo TEST: Usando archivo de test: {log_path}")
+    elif args.log_path:
+        log_path = args.log_path
+        if not os.path.isabs(log_path):
+            log_path = os.path.join(project_root, log_path)
         logger.info(f"Log especificado como argumento: {log_path}")
     elif log_config.get("log_path"):
         log_path = log_config.get("log_path")
-        # Si es una ruta relativa, hacerla relativa al directorio base del proyecto
         if not os.path.isabs(log_path):
-            # Encontrar el directorio raíz del proyecto
-            # Este script está en src/causal-gym/, así que subimos dos niveles
-            script_dir = os.path.dirname(os.path.abspath(__file__))
-            # script_dir = src/causal-gym/
-            src_dir = os.path.dirname(script_dir)  # src/
-            project_root = os.path.dirname(src_dir)  # proyecto raíz
             log_path = os.path.join(project_root, log_path)
         logger.info(f"Log leído desde config.yaml: {log_path}")
     else:
         logger.error("No se especificó la ruta del log")
         logger.error("Opciones:")
         logger.error("  1. Como argumento: python extract_bpmn_json.py <ruta_al_log.csv>")
-        logger.error("  2. En config.yaml: especificar 'log_config.log_path'")
+        logger.error("  2. Con --train: usar bpi2017_train.csv")
+        logger.error("  3. Con --test: usar bpi2017_test.csv")
+        logger.error("  4. En config.yaml: especificar 'log_config.log_path'")
         sys.exit(1)
     
-    if extract_bpmn_json(log_path, config):
+    if extract_bpmn_json(log_path, config, fast_mode=args.fast):
         logger.info("¡Proceso completado exitosamente!")
         sys.exit(0)
     else:

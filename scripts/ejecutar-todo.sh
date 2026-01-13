@@ -1,9 +1,12 @@
 #!/bin/bash
 # Script para ejecutar todo el pipeline:
-#   1) extract_bpmn_json.py
-#   2) compute_state.py
-#   3) train_agent_in_gym.py
-#   4) distill_policy.py
+#   1) extract_bpmn_json.py --train (usa bpi2017_train.csv)
+#   2) compute_state.py --train (usa bpi2017_train.csv)
+#   3) train_agent_in_gym.py (usa BPMN/JSON y estado parcial del train)
+#   4) distill_policy.py (usa experience buffer del train)
+#
+# NOTA: Este script entrena con el train set. Para evaluar, ejecuta:
+#   python src/benchmark/test_models/test_causal_gym.py --test
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_ROOT="$( cd "$SCRIPT_DIR/.." && pwd )"
@@ -52,14 +55,14 @@ handle_error() {
     exit 1
 }
 
-# Paso 1: Ejecutar extract_bpmn_json.py
+# Paso 1: Ejecutar extract_bpmn_json.py (usando --train para usar bpi2017_train.csv)
 echo "=================================================================================="
-echo "📋 PASO 1: Extrayendo BPMN y JSON con Simod"
+echo "📋 PASO 1: Extrayendo BPMN y JSON con Simod (usando train set)"
 echo "=================================================================================="
 echo ""
 
 if [ -f "$SRC_DIR/extract_bpmn_json.py" ]; then
-    PYTHONPATH="$PROJECT_ROOT/src:$PYTHONPATH" python "$SRC_DIR/extract_bpmn_json.py" || handle_error "extract_bpmn_json.py"
+    PYTHONPATH="$PROJECT_ROOT/src:$PYTHONPATH" python "$SRC_DIR/extract_bpmn_json.py" --train --fast || handle_error "extract_bpmn_json.py"
 else
     echo "❌ No se encontró: $SRC_DIR/extract_bpmn_json.py"
     deactivate
@@ -72,14 +75,14 @@ echo "✅ PASO 1 COMPLETADO"
 echo "=================================================================================="
 echo ""
 
-# Paso 2: Ejecutar compute_state.py
+# Paso 2: Ejecutar compute_state.py (usando --train para usar bpi2017_train.csv)
 echo "=================================================================================="
-echo "📋 PASO 2: Calculando estado parcial del proceso"
+echo "📋 PASO 2: Calculando estado parcial del proceso (usando train set)"
 echo "=================================================================================="
 echo ""
 
 if [ -f "$SRC_DIR/compute_state.py" ]; then
-    PYTHONPATH="$PROJECT_ROOT/src:$PYTHONPATH" python "$SRC_DIR/compute_state.py" || handle_error "compute_state.py"
+    PYTHONPATH="$PROJECT_ROOT/src:$PYTHONPATH" python "$SRC_DIR/compute_state.py" --train || handle_error "compute_state.py"
 else
     echo "❌ No se encontró: $SRC_DIR/compute_state.py"
     deactivate
@@ -160,16 +163,23 @@ script_config = config.get('script_config', {})
 output_dir_base = script_config.get('output_dir')
 
 # Obtener nombre del log
-log_path = log_config.get('log_path')
-if log_path:
-    if not os.path.isabs(log_path):
-        base_dir = '$PROJECT_ROOT'
-        log_path = os.path.join(base_dir, log_path)
-    log_name = os.path.splitext(os.path.basename(log_path))[0]
-    if log_name.endswith('.xes'):
-        log_name = os.path.splitext(log_name)[0]
+# Cuando se usa --train, el log es bpi2017_train.csv, así que usar ese nombre
+train_log_path = os.path.join('$PROJECT_ROOT', 'logs', 'BPI2017', 'processed', 'bpi2017_train.csv')
+if os.path.exists(train_log_path):
+    # Usar el nombre del log de train
+    log_name = 'bpi2017_train'
 else:
-    log_name = 'default'
+    # Fallback: leer desde config.yaml
+    log_path = log_config.get('log_path')
+    if log_path:
+        if not os.path.isabs(log_path):
+            base_dir = '$PROJECT_ROOT'
+            log_path = os.path.join(base_dir, log_path)
+        log_name = os.path.splitext(os.path.basename(log_path))[0]
+        if log_name.endswith('.xes'):
+            log_name = os.path.splitext(log_name)[0]
+    else:
+        log_name = 'default'
 
 if output_dir_base:
     # Construir ruta con nombre del log: results/{log_name}/simod/
@@ -221,16 +231,23 @@ script_config = config.get('script_config', {})
 state_output_dir_base = script_config.get('state_output_dir')
 
 # Obtener nombre del log
-log_path = log_config.get('log_path')
-if log_path:
-    if not os.path.isabs(log_path):
-        base_dir = '$PROJECT_ROOT'
-        log_path = os.path.join(base_dir, log_path)
-    log_name = os.path.splitext(os.path.basename(log_path))[0]
-    if log_name.endswith('.xes'):
-        log_name = os.path.splitext(log_name)[0]
+# Cuando se usa --train, el log es bpi2017_train.csv, así que usar ese nombre
+train_log_path = os.path.join('$PROJECT_ROOT', 'logs', 'BPI2017', 'processed', 'bpi2017_train.csv')
+if os.path.exists(train_log_path):
+    # Usar el nombre del log de train
+    log_name = 'bpi2017_train'
 else:
-    log_name = 'default'
+    # Fallback: leer desde config.yaml
+    log_path = log_config.get('log_path')
+    if log_path:
+        if not os.path.isabs(log_path):
+            base_dir = '$PROJECT_ROOT'
+            log_path = os.path.join(base_dir, log_path)
+        log_name = os.path.splitext(os.path.basename(log_path))[0]
+        if log_name.endswith('.xes'):
+            log_name = os.path.splitext(log_name)[0]
+    else:
+        log_name = 'default'
 
 if state_output_dir_base:
     # Construir ruta con nombre del log: results/{log_name}/state/
@@ -282,16 +299,23 @@ rl_output_dir_base = script_config.get('rl_output_dir')
 input_csv = distill_config.get('input_csv')
 
 # Obtener nombre del log
-log_path = log_config.get('log_path')
-if log_path:
-    if not os.path.isabs(log_path):
-        base_dir = '$PROJECT_ROOT'
-        log_path = os.path.join(base_dir, log_path)
-    log_name = os.path.splitext(os.path.basename(log_path))[0]
-    if log_name.endswith('.xes'):
-        log_name = os.path.splitext(log_name)[0]
+# Cuando se usa --train, el log es bpi2017_train.csv, así que usar ese nombre
+train_log_path = os.path.join('$PROJECT_ROOT', 'logs', 'BPI2017', 'processed', 'bpi2017_train.csv')
+if os.path.exists(train_log_path):
+    # Usar el nombre del log de train
+    log_name = 'bpi2017_train'
 else:
-    log_name = 'default'
+    # Fallback: leer desde config.yaml
+    log_path = log_config.get('log_path')
+    if log_path:
+        if not os.path.isabs(log_path):
+            base_dir = '$PROJECT_ROOT'
+            log_path = os.path.join(base_dir, log_path)
+        log_name = os.path.splitext(os.path.basename(log_path))[0]
+        if log_name.endswith('.xes'):
+            log_name = os.path.splitext(log_name)[0]
+    else:
+        log_name = 'default'
 
 # Preferir input_csv de distill_config, luego construir desde rl_output_dir_base
 if input_csv:
@@ -352,16 +376,23 @@ output_model = distill_config.get('output_model')
 distill_output_dir_base = script_config.get('distill_output_dir')
 
 # Obtener nombre del log
-log_path = log_config.get('log_path')
-if log_path:
-    if not os.path.isabs(log_path):
-        base_dir = '$PROJECT_ROOT'
-        log_path = os.path.join(base_dir, log_path)
-    log_name = os.path.splitext(os.path.basename(log_path))[0]
-    if log_name.endswith('.xes'):
-        log_name = os.path.splitext(log_name)[0]
+# Cuando se usa --train, el log es bpi2017_train.csv, así que usar ese nombre
+train_log_path = os.path.join('$PROJECT_ROOT', 'logs', 'BPI2017', 'processed', 'bpi2017_train.csv')
+if os.path.exists(train_log_path):
+    # Usar el nombre del log de train
+    log_name = 'bpi2017_train'
 else:
-    log_name = 'default'
+    # Fallback: leer desde config.yaml
+    log_path = log_config.get('log_path')
+    if log_path:
+        if not os.path.isabs(log_path):
+            base_dir = '$PROJECT_ROOT'
+            log_path = os.path.join(base_dir, log_path)
+        log_name = os.path.splitext(os.path.basename(log_path))[0]
+        if log_name.endswith('.xes'):
+            log_name = os.path.splitext(log_name)[0]
+    else:
+        log_name = 'default'
 
 if output_model:
     # Si es absoluta, convertir a relativa al PROJECT_ROOT

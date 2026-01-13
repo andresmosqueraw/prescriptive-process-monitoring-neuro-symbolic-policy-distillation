@@ -13,15 +13,23 @@ import pandas as pd
 import numpy as np
 import joblib
 import yaml
+import argparse
+import time
 
 # Agregar directorios al path
-script_dir = os.path.dirname(os.path.abspath(__file__)) # src/benchmark
-src_dir = os.path.dirname(script_dir)                   # src/
+script_dir = os.path.dirname(os.path.abspath(__file__)) # src/benchmark/test_models/
+benchmark_dir = os.path.dirname(script_dir)  # src/benchmark/
+src_dir = os.path.dirname(benchmark_dir)                   # src/
 project_root = os.path.dirname(src_dir)                 # root
 if src_dir not in sys.path: sys.path.insert(0, src_dir)
 
 from utils.config import load_config
 from utils.logger_utils import setup_logger
+
+# Agregar benchmark al path para importar benchmark_evaluator
+if benchmark_dir not in sys.path:
+    sys.path.insert(0, benchmark_dir)
+
 from benchmark_evaluator import BenchmarkEvaluator
 from test_baseline_bpi2017 import load_bpi2017_data, estimate_propensity_score, prepare_baseline_dataframe
 
@@ -78,13 +86,21 @@ def reconstruct_state_features(df_events, case_col, act_col):
 def apply_model_policy(df_events, model, case_col, act_col):
     """
     Usa el modelo para predecir acciones (Intervenir o No) sobre el log histórico.
+    Retorna case_decisions y latency_ms.
     """
     # 1. Generar Features de Estado
     state_features = reconstruct_state_features(df_events, case_col, act_col)
     
-    # 2. Predecir
+    # 2. Predecir con medición de latencia
     logger.info("🔮 Generando predicciones del modelo...")
+    start_time = time.time()
     predicted_actions_str = model.predict(state_features)
+    end_time = time.time()
+    
+    # Calcular latencia promedio por caso
+    n_cases = df_events[case_col].nunique()
+    latency_ms = (end_time - start_time) * 1000 / n_cases if n_cases > 0 else 0
+    logger.info(f"⏱️  Latencia promedio: {latency_ms:.4f} ms por caso (total: {(end_time - start_time) * 1000:.2f} ms para {n_cases} casos)")
     
     # --- FIX CRÍTICO ---
     # Identificar cuál es la acción de intervención.
@@ -118,27 +134,65 @@ def apply_model_policy(df_events, model, case_col, act_col):
     case_decisions = df_events.groupby(case_col)['model_action_binary'].max().reset_index()
     case_decisions.rename(columns={'model_action_binary': 'action_model'}, inplace=True)
     
-    return case_decisions
+    return case_decisions, latency_ms
 
 def main():
+    parser = argparse.ArgumentParser(description='Evaluar modelo Causal-Gym vs Baseline')
+    parser.add_argument('--test', action='store_true',
+                       help='Usar archivos procesados train/test (bpi2017_train.csv y bpi2017_test.csv)')
+    args = parser.parse_args()
+    
     logger.info(f"{'='*80}\nEVALUACIÓN FINAL: CAUSAL-GYM vs BASELINE\n{'='*80}")
     
     # 1. Configuración y Rutas
-    config = load_config()
-    # Usar log completo por defecto, o sample si se prefiere
-    # log_path = "logs/BPI2017/bpi-challenge-2017.csv" 
-    log_path = config["log_config"]["log_path"] # Usa el que esté en config.yaml
-    if not os.path.isabs(log_path): log_path = os.path.join(project_root, log_path)
+    if args.test:
+        # Modo test: usar archivos procesados
+        test_path = os.path.join(project_root, "logs", "BPI2017", "processed", "bpi2017_test.csv")
+        if not os.path.exists(test_path):
+            logger.error(f"❌ No se encontró el archivo de test: {test_path}")
+            sys.exit(1)
+        log_path = test_path
+        logger.info(f"🎯 Modo TEST: Usando archivo de test: {test_path}")
+    else:
+        # Modo original: usar config
+        config = load_config()
+        log_path = config["log_config"]["log_path"] if config else None
+        if not log_path:
+            logger.error("❌ No se especificó --test y no hay config válida")
+            sys.exit(1)
+        if not os.path.isabs(log_path):
+            log_path = os.path.join(project_root, log_path)
     
     # Ruta del modelo
-    model_path = os.path.join(project_root, "results/distill/bpi-challenge-2017-sample/distill/final_policy_model.pkl")
+    if args.test:
+        # Priorizar modelo BPI2017 cuando se usa --test
+        model_path = os.path.join(project_root, "results/bpi-challenge-2017-sample/distill/final_policy_model.pkl")
+        if not os.path.exists(model_path):
+            model_path = os.path.join(project_root, "results/distill/bpi-challenge-2017-sample/distill/final_policy_model.pkl")
+    else:
+        model_path = os.path.join(project_root, "results/distill/bpi-challenge-2017-sample/distill/final_policy_model.pkl")
+    
     # Ajuste para buscar el modelo si la ruta exacta varía
     if not os.path.exists(model_path):
         # Intentar búsqueda genérica
+        logger.info("🔍 Buscando modelo en results/...")
+        # Priorizar modelos con "bpi" o "2017" en el nombre
+        candidates = []
         for root, dirs, files in os.walk(os.path.join(project_root, "results")):
             if "final_policy_model.pkl" in files:
-                model_path = os.path.join(root, "final_policy_model.pkl")
-                break
+                candidate_path = os.path.join(root, "final_policy_model.pkl")
+                # Priorizar si contiene "bpi" o "2017"
+                if "bpi" in candidate_path.lower() or "2017" in candidate_path:
+                    candidates.insert(0, candidate_path)
+                else:
+                    candidates.append(candidate_path)
+        
+        if candidates:
+            model_path = candidates[0]
+            logger.info(f"✅ Modelo encontrado en: {model_path}")
+        else:
+            logger.error("❌ No se encontró ningún modelo final_policy_model.pkl")
+            sys.exit(1)
     
     # 2. Cargar Datos y Modelo
     df_events = load_bpi2017_data(log_path)
@@ -153,7 +207,7 @@ def main():
     case_col = 'case:concept:name' if 'case:concept:name' in df_events.columns else df_events.columns[0]
     act_col = 'concept:name' if 'concept:name' in df_events.columns else df_events.columns[1]
     
-    model_decisions = apply_model_policy(df_events, model, case_col, act_col)
+    model_decisions, latency_ms = apply_model_policy(df_events, model, case_col, act_col)
     
     # Merge decisiones del modelo en df_results
     # df_results tiene ['case_id', 'outcome_observed', ...]
@@ -175,22 +229,28 @@ def main():
     evaluator = BenchmarkEvaluator()
     metrics = evaluator.evaluate(df_final, training_complexity="Baja (CPU - Tree)")
     
+    # Agregar latencia a las métricas
+    metrics['latency_ms'] = latency_ms
+    
     # 6. Comparar con Baseline (Cargar valor histórico)
-    # Leemos el archivo CSV generado anteriormente para tener el dato exacto
-    baseline_csv = os.path.join(project_root, "results/benchmark/bpi-challenge-2017-sample/baseline_metrics.csv")
-    if not os.path.exists(baseline_csv):
-        baseline_csv = os.path.join(project_root, "results/benchmark/baseline_metrics.csv")
+    # Si usamos archivos procesados, buscar baseline en bpi2017_test
+    if args.test:
+        baseline_csv = os.path.join(project_root, "results/benchmark/bpi2017_test/baseline_metrics.csv")
+    else:
+        baseline_csv = os.path.join(project_root, "results/benchmark/bpi-challenge-2017-sample/baseline_metrics.csv")
+        if not os.path.exists(baseline_csv):
+            baseline_csv = os.path.join(project_root, "results/benchmark/baseline_metrics.csv")
         
     baseline_gain = 0.0
     if os.path.exists(baseline_csv):
         try:
             base_df = pd.read_csv(baseline_csv)
             baseline_gain = base_df['net_gain'].iloc[0]
-            logger.info(f"📉 Baseline Net Gain cargado: ${baseline_gain:.2f}")
-        except:
-            logger.warning("No se pudo leer baseline_metrics.csv, asumiendo 0 para Lift")
+            logger.info(f"📉 Baseline Net Gain cargado desde {baseline_csv}: ${baseline_gain:.2f}")
+        except Exception as e:
+            logger.warning(f"No se pudo leer baseline_metrics.csv: {e}")
     else:
-        logger.warning("Archivo baseline_metrics.csv no encontrado.")
+        logger.warning(f"Archivo baseline_metrics.csv no encontrado en: {baseline_csv}")
 
     # Recalcular Lift real usando el Net Gain del modelo vs Baseline Histórico
     model_gain = metrics['net_gain']
@@ -199,21 +259,26 @@ def main():
         metrics['lift_vs_bau'] = real_lift
     
     # 7. Reporte Final
-    print("\n" + "="*60)
+    print("\n" + "="*80)
     print("🏆 RESULTADOS FINALES: CAUSAL-GYM")
-    print("="*60)
+    print("="*80)
     print(f"💰 Net Gain (Modelo):     ${metrics['net_gain']:.2f}")
     print(f"📉 Baseline Gain:         ${baseline_gain:.2f}")
     print(f"🚀 LIFT REAL:             {metrics['lift_vs_bau']:+.2f}%")
     print(f"🎯 % Intervenciones:      {metrics['intervention_percentage']:.2f}%")
     print(f"🛡️  % Violaciones:         {metrics['violation_percentage']:.2f}%")
-    print("="*60 + "\n")
+    if pd.notna(metrics.get('latency_ms')):
+        print(f"⏱️  Latencia:              {metrics['latency_ms']:.4f} ms/caso")
+    print("="*80 + "\n")
     
     # Guardar
-    out_dir = os.path.join(project_root, "results/benchmark/causal_gym")
+    if args.test:
+        out_dir = os.path.join(project_root, "results/benchmark/bpi2017_test")
+    else:
+        out_dir = os.path.join(project_root, "results/benchmark/causal_gym")
     os.makedirs(out_dir, exist_ok=True)
     pd.DataFrame([metrics]).to_csv(os.path.join(out_dir, "causal_gym_metrics.csv"), index=False)
-    logger.info(f"Resultados guardados en: {out_dir}")
+    logger.info(f"✅ Resultados guardados en: {os.path.join(out_dir, 'causal_gym_metrics.csv')}")
 
 if __name__ == "__main__":
     main()

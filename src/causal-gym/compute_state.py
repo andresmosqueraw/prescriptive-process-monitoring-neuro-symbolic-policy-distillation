@@ -13,6 +13,7 @@ import pandas as pd
 import numpy as np
 import gzip
 import tempfile
+import argparse
 from datetime import datetime
 from typing import Dict, Any, Optional, List
 
@@ -154,12 +155,13 @@ def compute_cut_points(
     
     raise ValueError(f"unknown cut strategy: {strategy}")
 
-def compute_state(config: Optional[Dict[str, Any]] = None) -> Optional[List[str]]:
+def compute_state(config: Optional[Dict[str, Any]] = None, log_path_override: Optional[str] = None, force: bool = False) -> Optional[List[str]]:
     """
     Calcula el estado parcial del proceso.
     
     Args:
         config: Diccionario de configuración (si es None, se carga desde config.yaml)
+        log_path_override: Ruta al log a usar (sobrescribe log_config.log_path)
     
     Returns:
         Lista de rutas a archivos de estado generados, o None si falló
@@ -187,14 +189,19 @@ def compute_state(config: Optional[Dict[str, Any]] = None) -> Optional[List[str]
     src_dir = os.path.dirname(script_dir)  # src/
     project_root = os.path.dirname(src_dir)  # proyecto raíz
     
-    log_path = log_config.get("log_path")
-    if not log_path:
-        logger.error("No se especificó log_path en config.yaml")
-        return None
-    
-    # Si es una ruta relativa, hacerla relativa al directorio raíz del proyecto
-    if not os.path.isabs(log_path):
-        log_path = os.path.join(project_root, log_path)
+    # Usar log_path_override si se proporciona, sino usar log_config
+    if log_path_override:
+        log_path = log_path_override
+        if not os.path.isabs(log_path):
+            log_path = os.path.join(project_root, log_path)
+    else:
+        log_path = log_config.get("log_path")
+        if not log_path:
+            logger.error("No se especificó log_path en config.yaml")
+            return None
+        # Si es una ruta relativa, hacerla relativa al directorio raíz del proyecto
+        if not os.path.isabs(log_path):
+            log_path = os.path.join(project_root, log_path)
     
     # Obtener nombre del log
     log_name = get_log_name_from_path(log_path)
@@ -202,6 +209,30 @@ def compute_state(config: Optional[Dict[str, Any]] = None) -> Optional[List[str]
     # Directorio de salida para estado parcial (incluyendo nombre del log)
     state_output_dir_base = script_config.get("state_output_dir")
     output_dir = build_output_path(state_output_dir_base, log_name, "state", default_base="data")
+    if not os.path.isabs(output_dir):
+        output_dir = os.path.join(project_root, output_dir)
+    
+    # Verificar si ya existen estados parciales calculados (a menos que force=True)
+    if not force and os.path.exists(output_dir):
+        existing_state_files = [
+            os.path.join(output_dir, f) 
+            for f in os.listdir(output_dir) 
+            if f.startswith(f"{log_name}_process_state_") and f.endswith(".json")
+        ]
+        if existing_state_files:
+            logger.info("")
+            logger.info("=" * 80)
+            logger.info("✅ ESTADOS PARCIALES YA EXISTEN - OMITIENDO CÁLCULO")
+            logger.info("=" * 80)
+            logger.info(f"📁 Directorio: {output_dir}")
+            logger.info(f"   Encontrados {len(existing_state_files)} archivo(s) de estado:")
+            for f in sorted(existing_state_files):
+                file_size = os.path.getsize(f) / 1024  # KB
+                logger.info(f"     ✅ {os.path.basename(f)} ({file_size:.2f} KB)")
+            logger.info("")
+            logger.info("💡 Para recalcular, elimina los archivos primero o usa --force")
+            logger.info("")
+            return existing_state_files
     
     # Crear directorio de salida si no existe
     os.makedirs(output_dir, exist_ok=True)
@@ -210,6 +241,8 @@ def compute_state(config: Optional[Dict[str, Any]] = None) -> Optional[List[str]
     # Incluir nombre del log en la ruta
     simod_output_dir_base = script_config.get("output_dir")
     simod_output_dir = build_output_path(simod_output_dir_base, log_name, "simod", default_base="data")
+    if not os.path.isabs(simod_output_dir):
+        simod_output_dir = os.path.join(project_root, simod_output_dir)
     
     bpmn_path = os.path.join(simod_output_dir, f"{log_name}.bpmn")
     json_path = os.path.join(simod_output_dir, f"{log_name}.json")
@@ -524,7 +557,29 @@ def compute_state(config: Optional[Dict[str, Any]] = None) -> Optional[List[str]
 
 def main() -> None:
     """Función principal para ejecutar desde línea de comandos"""
-    result = compute_state()
+    parser = argparse.ArgumentParser(description='Calcular estado parcial del proceso')
+    parser.add_argument('--train', action='store_true',
+                       help='Usar archivo de train procesado (bpi2017_train.csv)')
+    parser.add_argument('--test', action='store_true',
+                       help='Usar archivo de test procesado (bpi2017_test.csv)')
+    parser.add_argument('--force', action='store_true',
+                       help='Forzar recálculo incluso si ya existen estados parciales')
+    args = parser.parse_args()
+    
+    # Encontrar directorio raíz del proyecto
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    src_dir = os.path.dirname(script_dir)  # src/
+    project_root = os.path.dirname(src_dir)  # proyecto raíz
+    
+    log_path_override = None
+    if args.train:
+        log_path_override = os.path.join(project_root, "logs", "BPI2017", "processed", "bpi2017_train.csv")
+        logger.info(f"🎯 Modo TRAIN: Usando archivo de train: {log_path_override}")
+    elif args.test:
+        log_path_override = os.path.join(project_root, "logs", "BPI2017", "processed", "bpi2017_test.csv")
+        logger.info(f"🎯 Modo TEST: Usando archivo de test: {log_path_override}")
+    
+    result = compute_state(log_path_override=log_path_override, force=args.force)
     if result:
         if isinstance(result, list):
             logger.info(f"¡{len(result)} estados parciales calculados exitosamente!")

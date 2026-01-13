@@ -224,8 +224,21 @@ def train(bpmn, json_path, state_path=None, config=None):
             logger.info(f"Episodio {ep+1}/{episodes} - Buffer: {len(buffer.data)}")
 
     # Guardar
-    log_name = get_log_name_from_path(config["log_config"]["log_path"])
+    # Detectar log_name desde el directorio donde estamos guardando (usar el mismo que en main)
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    src_dir = os.path.dirname(script_dir)
+    project_root = os.path.dirname(src_dir)
+    
+    # Verificar si existe results/bpi2017_train/rl (indica que usamos train set)
+    train_rl_dir = os.path.join(project_root, "results", "bpi2017_train", "rl")
+    if os.path.exists(train_rl_dir) or os.path.exists(os.path.join(project_root, "results", "bpi2017_train", "simod")):
+        log_name = "bpi2017_train"
+    else:
+        log_name = get_log_name_from_path(config["log_config"]["log_path"])
+    
     out_dir = build_output_path(config["script_config"]["rl_output_dir"], log_name, "rl", "data")
+    if not os.path.isabs(out_dir):
+        out_dir = os.path.join(project_root, out_dir)
     os.makedirs(out_dir, exist_ok=True)
     
     out_csv = os.path.join(out_dir, "experience_buffer.csv")
@@ -241,10 +254,28 @@ def main():
     config = load_config()
     if not config: return
     
-    log_name = get_log_name_from_path(config["log_config"]["log_path"])
+    # Encontrar directorio raíz del proyecto
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    src_dir = os.path.dirname(script_dir)  # src/
+    project_root = os.path.dirname(src_dir)  # proyecto raíz
+    
+    # Detectar si estamos usando train set: verificar si existe results/bpi2017_train/simod
+    train_simod_dir = os.path.join(project_root, "results", "bpi2017_train", "simod")
+    train_bpmn = os.path.join(train_simod_dir, "bpi2017_train.bpmn")
+    
+    if os.path.exists(train_bpmn):
+        # Usar train set
+        log_name = "bpi2017_train"
+        logger.info(f"🎯 Detectado train set: usando {log_name}")
+    else:
+        # Usar nombre del log desde config.yaml
+        log_name = get_log_name_from_path(config["log_config"]["log_path"])
+        logger.info(f"📋 Usando nombre del log desde config: {log_name}")
     
     # 1. Buscar Modelo BPMN/JSON (Fase 1)
     simod_dir = build_output_path(config["script_config"]["output_dir"], log_name, "simod", "data")
+    if not os.path.isabs(simod_dir):
+        simod_dir = os.path.join(project_root, simod_dir)
     bpmn = os.path.join(simod_dir, f"{log_name}.bpmn")
     json_p = os.path.join(simod_dir, f"{log_name}.json")
     
@@ -254,6 +285,8 @@ def main():
 
     # 2. Buscar Estado Parcial (Fase 2A)
     state_dir = build_output_path(config["script_config"]["state_output_dir"], log_name, "state", "data")
+    if not os.path.isabs(state_dir):
+        state_dir = os.path.join(project_root, state_dir)
     state_file = None
     if os.path.exists(state_dir):
         files = [os.path.join(state_dir, f) for f in os.listdir(state_dir) if "process_state" in f and f.endswith(".json")]

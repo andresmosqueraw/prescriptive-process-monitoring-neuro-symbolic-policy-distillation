@@ -79,14 +79,24 @@ def main():
     src_dir = os.path.dirname(script_dir)  # src/
     project_root = os.path.dirname(src_dir)  # proyecto raíz
     
-    # Obtener nombre del log
-    log_path = log_config.get("log_path")
-    if log_path:
-        if not os.path.isabs(log_path):
-            log_path = os.path.join(project_root, log_path)
-        log_name = get_log_name_from_path(log_path)
+    # Detectar si estamos usando train set: verificar si existe results/bpi2017_train/rl
+    train_rl_dir = os.path.join(project_root, "results", "bpi2017_train", "rl")
+    train_buffer = os.path.join(train_rl_dir, "experience_buffer.csv")
+    
+    if os.path.exists(train_buffer):
+        # Usar train set
+        log_name = "bpi2017_train"
+        logger.info(f"🎯 Detectado train set: usando {log_name}")
     else:
-        log_name = "default"
+        # Usar nombre del log desde config.yaml
+        log_path = log_config.get("log_path")
+        if log_path:
+            if not os.path.isabs(log_path):
+                log_path = os.path.join(project_root, log_path)
+            log_name = get_log_name_from_path(log_path)
+        else:
+            log_name = "default"
+        logger.info(f"📋 Usando nombre del log desde config: {log_name}")
     
     # Determinar ruta del experience buffer (entrada)
     input_csv = distill_config.get("input_csv")
@@ -103,14 +113,28 @@ def main():
     if not os.path.exists(input_csv):
         logger.warning(f"Buffer no encontrado en: {input_csv}")
         logger.info("Buscando experience_buffer.csv en results/...")
-        for root, dirs, files in os.walk(os.path.join(project_root, "results")):
-            if "experience_buffer.csv" in files:
-                input_csv = os.path.join(root, "experience_buffer.csv")
-                logger.info(f"Buffer encontrado en: {input_csv}")
-                break
+        
+        # Priorizar bpi2017_train si existe
+        if os.path.exists(train_buffer):
+            input_csv = train_buffer
+            logger.info(f"✅ Buffer de train encontrado: {input_csv}")
         else:
-            logger.error("No se encontró experience_buffer.csv en ningún lugar")
-            sys.exit(1)
+            # Buscar en todos los directorios, pero priorizar los más recientes
+            found_buffers = []
+            for root, dirs, files in os.walk(os.path.join(project_root, "results")):
+                if "experience_buffer.csv" in files:
+                    buffer_path = os.path.join(root, "experience_buffer.csv")
+                    mtime = os.path.getmtime(buffer_path)
+                    found_buffers.append((mtime, buffer_path))
+            
+            if found_buffers:
+                # Ordenar por fecha de modificación (más reciente primero)
+                found_buffers.sort(reverse=True)
+                input_csv = found_buffers[0][1]
+                logger.info(f"✅ Buffer encontrado (más reciente): {input_csv}")
+            else:
+                logger.error("No se encontró experience_buffer.csv en ningún lugar")
+                sys.exit(1)
     
     logger.info(f"Usando experience buffer: {input_csv}")
     
