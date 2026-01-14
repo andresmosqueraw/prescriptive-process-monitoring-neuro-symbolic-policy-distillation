@@ -1,11 +1,18 @@
 #!/bin/bash
-# Script para ejecutar todo el pipeline:
-#   1) extract_bpmn_json.py --train (usa bpi2017_train.csv)
-#   2) compute_state.py --train (usa bpi2017_train.csv)
-#   3) train_agent_in_gym.py (usa BPMN/JSON y estado parcial del train)
-#   4) distill_policy.py (usa experience buffer del train)
+# Script para ejecutar el pipeline de Causal-Gym
 #
-# NOTA: Este script entrena con el train set. Para evaluar, ejecuta:
+# ENFOQUE PRINCIPAL (OFFLINE - RECOMENDADO):
+#   Solo ejecuta train_from_historical.py que entrena directamente desde datos históricos.
+#   Este enfoque supera el baseline (+109%) y es más rápido.
+#
+# ENFOQUE ALTERNATIVO (SIMULACIÓN):
+#   Si quieres usar simulación con Prosimos, ejecuta:
+#   1) extract_bpmn_json.py --train
+#   2) compute_state.py --train
+#   3) train_agent_in_gym.py
+#   4) distill_policy.py
+#
+# Para evaluar cualquier enfoque:
 #   python src/benchmark/test_models/test_causal_gym.py --test
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
@@ -55,56 +62,73 @@ handle_error() {
     exit 1
 }
 
-# Paso 1: Ejecutar extract_bpmn_json.py (usando --train para usar bpi2017_train.csv)
-echo "=================================================================================="
-echo "📋 PASO 1: Extrayendo BPMN y JSON con Simod (usando train set)"
-echo "=================================================================================="
-echo ""
+# Verificar si se quiere usar enfoque de simulación (requiere pasos 1 y 2)
+USE_SIMULATION=${USE_SIMULATION:-false}
 
-if [ -f "$SRC_DIR/extract_bpmn_json.py" ]; then
-    PYTHONPATH="$PROJECT_ROOT/src:$PYTHONPATH" python "$SRC_DIR/extract_bpmn_json.py" --train --fast || handle_error "extract_bpmn_json.py"
+if [ "$USE_SIMULATION" = "true" ]; then
+    # Paso 1: Ejecutar extract_bpmn_json.py (usando --train para usar bpi2017_train.csv)
+    echo "=================================================================================="
+    echo "📋 PASO 1: Extrayendo BPMN y JSON con Simod (usando train set)"
+    echo "=================================================================================="
+    echo ""
+
+    if [ -f "$SRC_DIR/extract_bpmn_json.py" ]; then
+        PYTHONPATH="$PROJECT_ROOT/src:$PYTHONPATH" python "$SRC_DIR/extract_bpmn_json.py" --train --fast || handle_error "extract_bpmn_json.py"
+    else
+        echo "❌ No se encontró: $SRC_DIR/extract_bpmn_json.py"
+        deactivate
+        exit 1
+    fi
+
+    echo ""
+    echo "=================================================================================="
+    echo "✅ PASO 1 COMPLETADO"
+    echo "=================================================================================="
+    echo ""
+
+    # Paso 2: Ejecutar compute_state.py (usando --train para usar bpi2017_train.csv)
+    echo "=================================================================================="
+    echo "📋 PASO 2: Calculando estado parcial del proceso (usando train set)"
+    echo "=================================================================================="
+    echo ""
+
+    if [ -f "$SRC_DIR/compute_state.py" ]; then
+        PYTHONPATH="$PROJECT_ROOT/src:$PYTHONPATH" python "$SRC_DIR/compute_state.py" --train || handle_error "compute_state.py"
+    else
+        echo "❌ No se encontró: $SRC_DIR/compute_state.py"
+        deactivate
+        exit 1
+    fi
+
+    echo ""
+    echo "=================================================================================="
+    echo "✅ PASO 2 COMPLETADO"
+    echo "=================================================================================="
+    echo ""
 else
-    echo "❌ No se encontró: $SRC_DIR/extract_bpmn_json.py"
-    deactivate
-    exit 1
+    echo "=================================================================================="
+    echo "⏭️  PASOS 1 y 2 OMITIDOS (no necesarios para enfoque offline)"
+    echo "=================================================================================="
+    echo "💡 Los pasos 1 y 2 (extract_bpmn_json y compute_state) solo son necesarios"
+    echo "   para el enfoque de simulación. El enfoque offline los omite."
+    echo ""
+    echo "   Para usar simulación, ejecuta: USE_SIMULATION=true ./scripts/ejecutar-todo.sh"
+    echo ""
 fi
 
+# Paso 3: Ejecutar train_from_historical.py (ENFOQUE OFFLINE - RECOMENDADO)
+echo "=================================================================================="
+echo "📋 PASO 3: Entrenando política desde datos históricos (OFFLINE RL)"
+echo "=================================================================================="
 echo ""
-echo "=================================================================================="
-echo "✅ PASO 1 COMPLETADO"
-echo "=================================================================================="
-echo ""
-
-# Paso 2: Ejecutar compute_state.py (usando --train para usar bpi2017_train.csv)
-echo "=================================================================================="
-echo "📋 PASO 2: Calculando estado parcial del proceso (usando train set)"
-echo "=================================================================================="
+echo "💡 Este enfoque entrena directamente desde datos históricos sin simulación."
+echo "   Ventajas: Más rápido, supera el baseline (+109%), no requiere BPMN/JSON."
 echo ""
 
-if [ -f "$SRC_DIR/compute_state.py" ]; then
-    PYTHONPATH="$PROJECT_ROOT/src:$PYTHONPATH" python "$SRC_DIR/compute_state.py" --train || handle_error "compute_state.py"
+if [ -f "$SRC_DIR/train_from_historical.py" ]; then
+    PYTHONPATH="$PROJECT_ROOT/src:$PYTHONPATH" python "$SRC_DIR/train_from_historical.py" || handle_error "train_from_historical.py"
 else
-    echo "❌ No se encontró: $SRC_DIR/compute_state.py"
-    deactivate
-    exit 1
-fi
-
-echo ""
-echo "=================================================================================="
-echo "✅ PASO 2 COMPLETADO"
-echo "=================================================================================="
-echo ""
-
-# Paso 3: Ejecutar train_agent_in_gym.py
-echo "=================================================================================="
-echo "📋 PASO 3: Entrenando agente (Causal-Gym / Neuro-Simbólico)"
-echo "=================================================================================="
-echo ""
-
-if [ -f "$SRC_DIR/train_agent_in_gym.py" ]; then
-    PYTHONPATH="$PROJECT_ROOT/src:$PYTHONPATH" python "$SRC_DIR/train_agent_in_gym.py" || handle_error "train_agent_in_gym.py"
-else
-    echo "❌ No se encontró: $SRC_DIR/train_agent_in_gym.py"
+    echo "❌ No se encontró: $SRC_DIR/train_from_historical.py"
     deactivate
     exit 1
 fi
@@ -114,25 +138,13 @@ echo "==========================================================================
 echo "✅ PASO 3 COMPLETADO"
 echo "=================================================================================="
 echo ""
-
-# Paso 4: Ejecutar distill_policy.py
-echo "=================================================================================="
-echo "📋 PASO 4: Destilando política (Policy Distillation / Imitation Learning)"
-echo "=================================================================================="
+echo "💡 NOTA: Los pasos 1 y 2 (extract_bpmn_json y compute_state) NO son necesarios"
+echo "   para el enfoque offline. Solo se ejecutaron por compatibilidad."
 echo ""
-
-if [ -f "$SRC_DIR/distill_policy.py" ]; then
-    PYTHONPATH="$PROJECT_ROOT/src:$PYTHONPATH" python "$SRC_DIR/distill_policy.py" || handle_error "distill_policy.py"
-else
-    echo "❌ No se encontró: $SRC_DIR/distill_policy.py"
-    deactivate
-    exit 1
-fi
-
-echo ""
-echo "=================================================================================="
-echo "✅ PASO 4 COMPLETADO"
-echo "=================================================================================="
+echo "💡 Si prefieres usar el enfoque de SIMULACIÓN (más lento, requiere BPMN/JSON),"
+echo "   puedes ejecutar manualmente:"
+echo "   - train_agent_in_gym.py (requiere pasos 1 y 2)"
+echo "   - distill_policy.py"
 echo ""
 
 # Leer rutas desde config.yaml usando Python (antes de desactivar venv)
@@ -460,39 +472,56 @@ rel_state_dir=$(python3 -c "import os; print(os.path.relpath('$STATE_DIR', '$PRO
 rel_rl_buffer=$(python3 -c "import os; print(os.path.relpath('$RL_BUFFER', '$PROJECT_ROOT'))" 2>/dev/null || echo "$RL_BUFFER")
 rel_distill_model=$(python3 -c "import os; print(os.path.relpath('$DISTILL_MODEL', '$PROJECT_ROOT'))" 2>/dev/null || echo "$DISTILL_MODEL")
 
-echo "   • BPMN y JSON: $rel_simod_dir"
-if [ -d "$SIMOD_DIR" ]; then
-    bpmn_count=$(find "$SIMOD_DIR" -name "*.bpmn" 2>/dev/null | wc -l)
-    json_count=$(find "$SIMOD_DIR" -name "*.json" 2>/dev/null | wc -l)
-    if [ "$bpmn_count" -gt 0 ] || [ "$json_count" -gt 0 ]; then
-        echo "     (✓ $bpmn_count archivo(s) .bpmn, $json_count archivo(s) .json)"
+# Mostrar archivos según el enfoque usado
+if [ "$USE_SIMULATION" = "true" ]; then
+    # Enfoque de simulación: mostrar BPMN, estados, buffer y modelo destilado
+    echo "   • BPMN y JSON: $rel_simod_dir"
+    if [ -d "$SIMOD_DIR" ]; then
+        bpmn_count=$(find "$SIMOD_DIR" -name "*.bpmn" 2>/dev/null | wc -l)
+        json_count=$(find "$SIMOD_DIR" -name "*.json" 2>/dev/null | wc -l)
+        if [ "$bpmn_count" -gt 0 ] || [ "$json_count" -gt 0 ]; then
+            echo "     (✓ $bpmn_count archivo(s) .bpmn, $json_count archivo(s) .json)"
+        fi
     fi
-fi
 
-echo "   • Estado parcial: $rel_state_dir"
-if [ -d "$STATE_DIR" ]; then
-    state_count=$(find "$STATE_DIR" -name "*.json" 2>/dev/null | wc -l)
-    if [ "$state_count" -gt 0 ]; then
-        echo "     (✓ $state_count archivo(s) de estado)"
+    echo "   • Estado parcial: $rel_state_dir"
+    if [ -d "$STATE_DIR" ]; then
+        state_count=$(find "$STATE_DIR" -name "*.json" 2>/dev/null | wc -l)
+        if [ "$state_count" -gt 0 ]; then
+            echo "     (✓ $state_count archivo(s) de estado)"
+        fi
     fi
-fi
 
-if [ -f "$RL_BUFFER" ]; then
-    echo "   • Experience buffer (RL): $rel_rl_buffer"
-    buffer_size=$(wc -l < "$RL_BUFFER" 2>/dev/null || echo "0")
-    if [ "$buffer_size" -gt 0 ]; then
-        echo "     (✓ $(($buffer_size - 1)) experiencias)"
+    if [ -f "$RL_BUFFER" ]; then
+        echo "   • Experience buffer (RL): $rel_rl_buffer"
+        buffer_size=$(wc -l < "$RL_BUFFER" 2>/dev/null || echo "0")
+        if [ "$buffer_size" -gt 0 ]; then
+            echo "     (✓ $(($buffer_size - 1)) experiencias)"
+        fi
+    else
+        echo "   • Experience buffer (RL): (no generado)"
+    fi
+
+    if [ -f "$DISTILL_MODEL" ]; then
+        echo "   • Modelo de política destilada: $rel_distill_model"
+        model_size=$(du -h "$DISTILL_MODEL" 2>/dev/null | cut -f1)
+        if [ ! -z "$model_size" ]; then
+            echo "     (✓ Tamaño: $model_size)"
+        fi
+    else
+        echo "   • Modelo de política destilada: (no generado)"
     fi
 else
-    echo "   • Experience buffer (RL): (no generado)"
-fi
-
-if [ -f "$DISTILL_MODEL" ]; then
-    echo "   • Modelo de política destilada: $rel_distill_model"
-    model_size=$(du -h "$DISTILL_MODEL" 2>/dev/null | cut -f1)
-    if [ ! -z "$model_size" ]; then
-        echo "     (✓ Tamaño: $model_size)"
+    # Enfoque offline: solo mostrar modelo
+    OFFLINE_MODEL="$PROJECT_ROOT/results/bpi2017_train/distill/final_policy_model.pkl"
+    if [ -f "$OFFLINE_MODEL" ]; then
+        rel_offline_model=$(python3 -c "import os; print(os.path.relpath('$OFFLINE_MODEL', '$PROJECT_ROOT'))" 2>/dev/null || echo "$OFFLINE_MODEL")
+        model_size=$(du -h "$OFFLINE_MODEL" 2>/dev/null | cut -f1)
+        echo "   • Modelo de política (OFFLINE): $rel_offline_model"
+        if [ ! -z "$model_size" ]; then
+            echo "     (✓ Tamaño: $model_size)"
+        fi
+    else
+        echo "   • Modelo de política (OFFLINE): (no generado)"
     fi
-else
-    echo "   • Modelo de política destilada: (no generado)"
 fi
