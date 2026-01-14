@@ -86,7 +86,7 @@ def reconstruct_state_features(df_events, case_col, act_col):
 def apply_model_policy(df_events, model, case_col, act_col):
     """
     Usa el modelo para predecir acciones (Intervenir o No) sobre el log histórico.
-    Retorna case_decisions y latency_ms.
+    Retorna case_decisions (con action_model y uplift_score) y latency_ms.
     """
     # 1. Generar Features de Estado
     state_features = reconstruct_state_features(df_events, case_col, act_col)
@@ -95,6 +95,29 @@ def apply_model_policy(df_events, model, case_col, act_col):
     logger.info("🔮 Generando predicciones del modelo...")
     start_time = time.time()
     predicted_actions_str = model.predict(state_features)
+    
+    # Intentar obtener probabilidades para uplift_score
+    uplift_scores = None
+    if hasattr(model, 'predict_proba'):
+        try:
+            # Obtener probabilidades de todas las clases
+            probas = model.predict_proba(state_features)
+            # Identificar qué clase corresponde a "intervenir"
+            # Usar la probabilidad máxima como uplift_score (heurística)
+            # O si hay dos clases, usar la probabilidad de la clase positiva
+            if probas.shape[1] == 2:
+                # Binario: usar probabilidad de clase positiva (índice 1)
+                uplift_scores = probas[:, 1]
+            else:
+                # Multi-clase: usar la probabilidad máxima como confianza
+                uplift_scores = probas.max(axis=1)
+            logger.info(f"✅ Probabilidades obtenidas para uplift_score (shape: {uplift_scores.shape})")
+        except Exception as e:
+            logger.warning(f"⚠️  No se pudieron obtener probabilidades: {e}")
+            uplift_scores = None
+    else:
+        logger.warning("⚠️  Modelo no tiene predict_proba(), usando heurística para uplift_score")
+    
     end_time = time.time()
     
     # Calcular latencia promedio por caso
@@ -129,9 +152,22 @@ def apply_model_policy(df_events, model, case_col, act_col):
     # Agregar predicción al DF original temporalmente
     df_events['model_action_binary'] = binary_actions
     
+    # Si no tenemos uplift_scores de predict_proba, usar heurística basada en binary_actions
+    if uplift_scores is None:
+        # Heurística: usar 0.5 + 0.5 * binary_action (intervenir = 1.0, no intervenir = 0.5)
+        # Esto da un score continuo pero no es ideal
+        uplift_scores = 0.5 + 0.5 * binary_actions.astype(float)
+        logger.info("📊 Usando heurística para uplift_score (0.5 para no intervenir, 1.0 para intervenir)")
+    
+    df_events['uplift_score'] = uplift_scores
+    
     # 4. Agrupar por Caso (Políticas a nivel de caso)
     # Si el modelo recomienda llamar AL MENOS UNA VEZ en el caso, action_model = 1
-    case_decisions = df_events.groupby(case_col)['model_action_binary'].max().reset_index()
+    # Para uplift_score, usar el máximo (mayor confianza de intervención en el caso)
+    case_decisions = df_events.groupby(case_col).agg({
+        'model_action_binary': 'max',  # action_model = 1 si hay al menos una intervención
+        'uplift_score': 'max'  # uplift_score = máximo en el caso
+    }).reset_index()
     case_decisions.rename(columns={'model_action_binary': 'action_model'}, inplace=True)
     
     return case_decisions, latency_ms
@@ -165,10 +201,14 @@ def main():
     
     # Ruta del modelo
     if args.test:
-        # Priorizar modelo BPI2017 cuando se usa --test
-        model_path = os.path.join(project_root, "results/bpi-challenge-2017-sample/distill/final_policy_model.pkl")
+        # Priorizar modelo entrenado con bpi2017_train cuando se usa --test
+        model_path = os.path.join(project_root, "results/bpi2017_train/distill/final_policy_model.pkl")
         if not os.path.exists(model_path):
-            model_path = os.path.join(project_root, "results/distill/bpi-challenge-2017-sample/distill/final_policy_model.pkl")
+            # Fallback: buscar otros modelos BPI2017
+            logger.info("🔍 Modelo de train no encontrado, buscando alternativas...")
+            model_path = os.path.join(project_root, "results/bpi-challenge-2017-sample/distill/final_policy_model.pkl")
+            if not os.path.exists(model_path):
+                model_path = os.path.join(project_root, "results/distill/bpi-challenge-2017-sample/distill/final_policy_model.pkl")
     else:
         model_path = os.path.join(project_root, "results/distill/bpi-challenge-2017-sample/distill/final_policy_model.pkl")
     
@@ -176,14 +216,16 @@ def main():
     if not os.path.exists(model_path):
         # Intentar búsqueda genérica
         logger.info("🔍 Buscando modelo en results/...")
-        # Priorizar modelos con "bpi" o "2017" en el nombre
+        # Priorizar modelos con "bpi2017_train" o "bpi" o "2017" en el nombre
         candidates = []
         for root, dirs, files in os.walk(os.path.join(project_root, "results")):
             if "final_policy_model.pkl" in files:
                 candidate_path = os.path.join(root, "final_policy_model.pkl")
-                # Priorizar si contiene "bpi" o "2017"
-                if "bpi" in candidate_path.lower() or "2017" in candidate_path:
+                # Priorizar bpi2017_train, luego otros con "bpi" o "2017"
+                if "bpi2017_train" in candidate_path:
                     candidates.insert(0, candidate_path)
+                elif "bpi" in candidate_path.lower() or "2017" in candidate_path:
+                    candidates.insert(1 if len(candidates) > 0 and "bpi2017_train" not in candidates[0] else 0, candidate_path)
                 else:
                     candidates.append(candidate_path)
         
@@ -211,18 +253,41 @@ def main():
     
     # Merge decisiones del modelo en df_results
     # df_results tiene ['case_id', 'outcome_observed', ...]
-    # model_decisions tiene ['case_id', 'action_model']
+    # model_decisions tiene [case_col, 'action_model', 'uplift_score']
     
-    # Eliminar el action_model del baseline (que era copy-paste del histórico)
+    # Eliminar el action_model y uplift_score del baseline (que eran del histórico)
     if 'action_model' in df_results.columns:
         del df_results['action_model']
+    if 'uplift_score' in df_results.columns:
+        del df_results['uplift_score']
+    
+    # Renombrar case_col a 'case_id' para el merge
+    model_decisions_renamed = model_decisions.rename(columns={case_col: 'case_id'})
+    
+    # Verificar que uplift_score está en model_decisions
+    if 'uplift_score' not in model_decisions_renamed.columns:
+        logger.warning("⚠️  uplift_score no encontrado en model_decisions, agregando heurística")
+        model_decisions_renamed['uplift_score'] = 0.5 + 0.5 * model_decisions_renamed['action_model'].astype(float)
+    else:
+        logger.info(f"✅ uplift_score encontrado en model_decisions (rango: {model_decisions_renamed['uplift_score'].min():.4f} - {model_decisions_renamed['uplift_score'].max():.4f})")
         
     df_final = df_results.merge(
-        model_decisions.rename(columns={case_col: 'case_id'}), 
+        model_decisions_renamed, 
         on='case_id', 
         how='left'
     )
+    
     df_final['action_model'] = df_final['action_model'].fillna(0).astype(int)
+    
+    # Asegurar que uplift_score existe y tiene valores válidos
+    if 'uplift_score' not in df_final.columns:
+        # Si no está, usar heurística basada en action_model
+        df_final['uplift_score'] = 0.5 + 0.5 * df_final['action_model'].astype(float)
+        logger.warning("⚠️  uplift_score no encontrado después del merge, usando heurística")
+    else:
+        df_final['uplift_score'] = df_final['uplift_score'].fillna(0.5)
+        valid_count = df_final['uplift_score'].notna().sum()
+        logger.info(f"✅ uplift_score en df_final: {valid_count}/{len(df_final)} valores válidos (rango: {df_final['uplift_score'].min():.4f} - {df_final['uplift_score'].max():.4f})")
     
     # 5. Calcular Métricas con BenchmarkEvaluator
     logger.info("📊 Calculando métricas de rendimiento...")
@@ -267,6 +332,8 @@ def main():
     print(f"🚀 LIFT REAL:             {metrics['lift_vs_bau']:+.2f}%")
     print(f"🎯 % Intervenciones:      {metrics['intervention_percentage']:.2f}%")
     print(f"🛡️  % Violaciones:         {metrics['violation_percentage']:.2f}%")
+    if pd.notna(metrics.get('auc_qini')):
+        print(f"📈 AUC-Qini:              {metrics['auc_qini']:.4f}")
     if pd.notna(metrics.get('latency_ms')):
         print(f"⏱️  Latencia:              {metrics['latency_ms']:.4f} ms/caso")
     print("="*80 + "\n")
