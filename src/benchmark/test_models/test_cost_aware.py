@@ -688,6 +688,25 @@ def main():
     evaluator = BenchmarkEvaluator()
     metrics = evaluator.evaluate(df_final, training_complexity="Alta (CPU - OrthoForest)")
     
+    # IMPORTANTE: Para comparación justa con el baseline, usar el mismo cálculo de Net Gain
+    # El baseline usa calculate_historical_net_gain que promedia rewards con treatment_observed
+    # Para modelos, usamos action_model en lugar de treatment_observed
+    df_for_direct = df_final.copy()
+    df_for_direct['direct_reward'] = df_for_direct.apply(
+        lambda row: evaluator.calculate_observed_reward(
+            row.get('outcome_observed', 0),
+            row.get('action_model', 0),  # Usar action_model en lugar de treatment_observed
+            row.get('duration_days', 0)
+        ),
+        axis=1
+    )
+    direct_net_gain = df_for_direct['direct_reward'].mean()
+    logger.info(f"📊 Net Gain Directo (usando action_model): ${direct_net_gain:.2f}")
+    
+    # Guardar ambos para referencia y usar el directo como principal
+    metrics['net_gain_ipw'] = metrics['net_gain']
+    metrics['net_gain'] = direct_net_gain
+    
     # Agregar latencia a las métricas
     metrics['latency_ms'] = latency_ms
     

@@ -171,9 +171,22 @@ def process_baseline_for_log(csv_path: str, log_name: str, project_root: str) ->
     # 1. Métricas estándar
     results = evaluator.evaluate(df_results, training_complexity="N/A (Baseline)")
     
-    # 2. Verdad Histórica (Ground Truth)
-    historical_gain = evaluator.calculate_historical_net_gain(df_results)
-    results['net_gain'] = historical_gain
+    # 2. Net Gain usando cálculo "directo" (consistente con otros modelos)
+    # Como action_model = treatment_observed en el baseline, esto es equivalente a
+    # calculate_historical_net_gain pero usa la misma lógica que los otros modelos
+    df_for_direct = df_results.copy()
+    df_for_direct['direct_reward'] = df_for_direct.apply(
+        lambda row: evaluator.calculate_observed_reward(
+            row.get('outcome_observed', 0),
+            row.get('action_model', 0),  # = treatment_observed para el baseline
+            row.get('duration_days', 0)
+        ),
+        axis=1
+    )
+    direct_net_gain = df_for_direct['direct_reward'].mean()
+    logger.info(f"📊 Net Gain (cálculo directo): ${direct_net_gain:.2f}")
+    
+    results['net_gain'] = direct_net_gain
     results['lift_vs_bau'] = 0.0
     results['latency_ms'] = 0.0
     

@@ -79,14 +79,48 @@ class SymbolicSafetyGuard:
             self.resource_budget -= 20
 
 class CausalRewardEngine:
-    """Recompensa con ajuste IPW."""
-    def calculate(self, action: str, success: bool, propensity=0.5) -> float:
-        reward = 0
-        if "Call" in str(action): reward -= 20 # Costo
+    """
+    Recompensa con ajuste IPW - MEJORADA para selectividad.
+    
+    Objetivo: Aprender CUÁNDO intervenir, no siempre intervenir.
+    """
+    def calculate(self, action: str, success: bool, propensity=0.5, case_state: Dict = None) -> float:
+        reward = 0.0
+        is_intervention = "Call" in str(action) or "node_" in str(action)
         
-        if success:
-            # IPW: Premiar más los éxitos difíciles
-            reward += (100.0 / max(propensity, 0.1))
+        if is_intervention:
+            # Costo base de intervención
+            reward -= 20.0
+            
+            if success:
+                # Éxito CON intervención: recompensa moderada
+                # IPW: Premiar más los éxitos difíciles
+                reward += (100.0 / max(propensity, 0.1))
+            else:
+                # Fracaso CON intervención: penalización extra (desperdicio)
+                reward -= 30.0
+        else:
+            # NO intervención
+            if success:
+                # Éxito SIN intervención: ¡muy bueno! (ahorro de recursos)
+                reward += 80.0  # Premio por no intervenir cuando no era necesario
+            else:
+                # Fracaso SIN intervención: penalización por no actuar
+                # Pero menor que intervenir y fallar (oportunidad perdida)
+                reward -= 10.0
+        
+        # Bonus por selectividad basada en features del caso
+        if case_state:
+            try:
+                amount = float(case_state.get("case:RequestedAmount", 0))
+                # Casos con monto alto son más importantes
+                if amount > 20000 and is_intervention and success:
+                    reward += 50.0  # Bonus por intervenir correctamente en casos importantes
+                elif amount < 5000 and not is_intervention:
+                    reward += 20.0  # Bonus por NO intervenir en casos pequeños
+            except:
+                pass
+        
         return reward
 
 class RLAgent:
@@ -160,10 +194,25 @@ class NeuroSelector:
         # 3. Reward & Cost
         self.safety.consume(final_action)
         # Simulación de resultado (Mock para training)
-        success = random.random() > 0.4
-        if "Call" in str(final_action): success = random.random() > 0.2 # Lift
+        # La probabilidad de éxito depende del monto y la intervención
+        base_success_rate = 0.4
+        try:
+            amount = float(attrs.get('case:RequestedAmount', 0))
+            # Casos con monto alto tienen menor probabilidad base de éxito
+            if amount > 20000:
+                base_success_rate = 0.25
+            elif amount > 10000:
+                base_success_rate = 0.35
+            # Intervenir mejora la probabilidad de éxito (efecto causal)
+            if "Call" in str(final_action) or "node_" in str(final_action):
+                # Lift del 20% por intervenir
+                base_success_rate = min(0.8, base_success_rate + 0.20)
+        except:
+            pass
         
-        r = self.reward.calculate(final_action, success)
+        success = random.random() < base_success_rate
+        
+        r = self.reward.calculate(final_action, success, propensity=0.5, case_state=attrs)
 
         # 4. Buffer
         self.buffer.add({

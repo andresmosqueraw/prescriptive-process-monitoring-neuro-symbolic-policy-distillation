@@ -1,2 +1,2 @@
-net_gain,lift_vs_bau,intervention_percentage,violation_percentage,auc_qini,latency_ms,training_complexity
-11.883687497512556,-6.316238229168819,100.0,0.0,-94529.99894213477,0.310837547829274,Baja (CPU - Tree)
+net_gain,lift_vs_bau,intervention_percentage,violation_percentage,auc_qini,latency_ms,training_complexity,net_gain_ipw
+12.651044043709424,-0.26686610605949684,99.70379773616841,0.0,-94529.16957579604,0.00011662408862431238,Baja (CPU - Tree),11.940129272677908

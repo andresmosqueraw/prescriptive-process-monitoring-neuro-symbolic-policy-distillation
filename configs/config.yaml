@@ -159,19 +159,19 @@ script_config:
 # Configuración de entrenamiento RL (train_agent_in_gym.py)
 rl_config:
   # Número de episodios de entrenamiento
-  episodes: 10
+  episodes: 50  # AUMENTADO de 10 a 50 para más aprendizaje
   
   # Número de casos a simular por episodio
-  total_cases: 50
+  total_cases: 100  # AUMENTADO de 50 a 100 para más experiencias
   
   # Tasa de aprendizaje del agente RL
-  learning_rate: 0.01
+  learning_rate: 0.05  # AUMENTADO de 0.01 a 0.05 para convergencia más rápida
   
   # Exploración inicial (epsilon-greedy)
-  epsilon: 0.1
+  epsilon: 0.3  # AUMENTADO de 0.1 a 0.3 para más exploración
   
   # Presupuesto de recursos para SymbolicSafetyGuard
-  resource_budget: 100
+  resource_budget: 500  # AUMENTADO de 100 a 500 para permitir más intervenciones en entrenamiento
 
 # Configuración de destilación de política (distill_policy.py)
 distill_config:
@@ -186,7 +186,7 @@ distill_config:
   output_model: null
   
   # Profundidad máxima del árbol de decisión
-  max_depth: 5
+  max_depth: 10  # AUMENTADO de 5 a 10 para más granularidad
   
   # Criterio para dividir nodos ('entropy' o 'gini')
   criterion: "entropy"
@@ -196,5 +196,5 @@ distill_config:
   
   # Umbral de calidad para filtrar experiencias
   # Solo se usan experiencias con reward_causal >= quality_threshold
-  quality_threshold: 0.0
+  quality_threshold: 10.0  # AUMENTADO de 0.0 a 10.0 para solo usar experiencias positivas
 
